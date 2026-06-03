@@ -1,0 +1,39 @@
+{
+  "Home": {
+    "name": "Ana Sayfa",
+    "content": "<div>[simple-slider key=\"home-slider-tr\" ads_1=\"VC2C8Q1UGCBG\" ads_2=\"NBDWRXTSVZ8N\"][/simple-slider]</div><div>[site-features icon1=\"icon-rocket\" title1=\"Ücretsiz teslimat\" subtitle1=\"99 $'ın üzerindeki tüm siparişler için\" icon2=\"icon-sync\" title2=\"90 gün iade\" subtitle2=\"Ürünlerde sorun varsa\" icon3=\"icon-credit-card\" title3=\"Güvenli ödeme\" subtitle3=\"%100 güvenli ödeme\" icon4=\"icon-bubbles\" title4=\"7/24 destek\" subtitle4=\"Özel destek\" icon5=\"icon-gift\" title5=\"Hediye hizmeti\" subtitle5=\"Hediye hizmeti desteği\" enable_lazy_loading=\"yes\"][/site-features]</div><div>[flash-sale title=\"Günün fırsatı\" flash_sale_id=\"1\" enable_lazy_loading=\"yes\"][/flash-sale]</div><div>[featured-product-categories title=\"En iyi kategoriler\" enable_lazy_loading=\"yes\"][/featured-product-categories]</div><div>[theme-ads key_1=\"IZ6WU8KUALYD\" key_2=\"ILSFJVYFGCPZ\" key_3=\"ZDOZUZZIU7FT\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[featured-products title=\"Öne çıkan ürünler\" enable_lazy_loading=\"yes\"][/featured-products]</div><div>[theme-ads key_1=\"Q9YDUIC9HSWS\" key_2=\"IZ6WU8KUALYE\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[product-collections title=\"Özel ürünler\" enable_lazy_loading=\"yes\"][/product-collections]</div><div>[product-category-products category_id=\"18\" enable_lazy_loading=\"yes\"][/product-category-products]</div>[testimonials title=\"Müşterilerimiz ne diyor\" subtitle=\"Müşteri yorumları\" testimonial_ids=\"1,2,3,4\" enable_lazy_loading=\"yes\"][/testimonials]<div>[download-app title=\"Martfury uygulamasını şimdi indirin!\" subtitle=\"Uygulamamızla daha hızlı ve kolay alışveriş yapın. Uygulamayı telefonunuza indirmek için bir bağlantı alın.\" screenshot=\"general/app.png\" android_app_url=\"https://www.appstore.com\" ios_app_url=\"https://play.google.com/store\" enable_lazy_loading=\"yes\"][/download-app]</div><div>[product-category-products category_id=\"23\" enable_lazy_loading=\"yes\"][/product-category-products]</div><div>[newsletter-form title=\"Bültenimize şimdi katılın\" subtitle=\"Ürünler ve kuponlar hakkında bilgi almak için abone olun\" enable_lazy_loading=\"yes\"][/newsletter-form]</div>"
+  },
+  "About us": {
+    "name": "Hakkımızda"
+  },
+  "Terms Of Use": {
+    "name": "Kullanım Şartları"
+  },
+  "Terms & Conditions": {
+    "name": "Şartlar ve Koşullar"
+  },
+  "Refund Policy": {
+    "name": "İade Politikası"
+  },
+  "Blog": {
+    "name": "Blog"
+  },
+  "FAQs": {
+    "name": "SSS"
+  },
+  "Contact": {
+    "name": "İletişim"
+  },
+  "Cookie Policy": {
+    "name": "Çerez Politikası"
+  },
+  "Affiliate": {
+    "name": "İş Ortakları"
+  },
+  "Career": {
+    "name": "Kariyer"
+  },
+  "Coming soon": {
+    "name": "Yakında"
+  }
+}

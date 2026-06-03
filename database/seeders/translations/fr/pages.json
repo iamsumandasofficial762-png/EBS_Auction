@@ -1,0 +1,39 @@
+{
+  "Home": {
+    "name": "Accueil",
+    "content": "<div>[simple-slider key=\"home-slider-fr\" ads_1=\"VC2C8Q1UGCBG\" ads_2=\"NBDWRXTSVZ8N\"][/simple-slider]</div><div>[site-features icon1=\"icon-rocket\" title1=\"Livraison gratuite\" subtitle1=\"Pour toutes les commandes supérieures à 99 $\" icon2=\"icon-sync\" title2=\"Retour sous 90 jours\" subtitle2=\"Si les produits ont des problèmes\" icon3=\"icon-credit-card\" title3=\"Paiement sécurisé\" subtitle3=\"Paiement 100% sécurisé\" icon4=\"icon-bubbles\" title4=\"Support 24/7\" subtitle4=\"Support dédié\" icon5=\"icon-gift\" title5=\"Service cadeau\" subtitle5=\"Support service cadeau\" enable_lazy_loading=\"yes\"][/site-features]</div><div>[flash-sale title=\"Offre du jour\" flash_sale_id=\"1\" enable_lazy_loading=\"yes\"][/flash-sale]</div><div>[featured-product-categories title=\"Catégories principales\" enable_lazy_loading=\"yes\"][/featured-product-categories]</div><div>[theme-ads key_1=\"IZ6WU8KUALYD\" key_2=\"ILSFJVYFGCPZ\" key_3=\"ZDOZUZZIU7FT\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[featured-products title=\"Produits en vedette\" enable_lazy_loading=\"yes\"][/featured-products]</div><div>[theme-ads key_1=\"Q9YDUIC9HSWS\" key_2=\"IZ6WU8KUALYE\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[product-collections title=\"Produits exclusifs\" enable_lazy_loading=\"yes\"][/product-collections]</div><div>[product-category-products category_id=\"18\" enable_lazy_loading=\"yes\"][/product-category-products]</div>[testimonials title=\"Ce que disent nos clients\" subtitle=\"Avis des clients\" testimonial_ids=\"1,2,3,4\" enable_lazy_loading=\"yes\"][/testimonials]<div>[download-app title=\"Téléchargez l'application Martfury maintenant !\" subtitle=\"Achetez rapidement et facilement avec notre application. Obtenez un lien pour télécharger l'application sur votre téléphone.\" screenshot=\"general/app.png\" android_app_url=\"https://www.appstore.com\" ios_app_url=\"https://play.google.com/store\" enable_lazy_loading=\"yes\"][/download-app]</div><div>[product-category-products category_id=\"23\" enable_lazy_loading=\"yes\"][/product-category-products]</div><div>[newsletter-form title=\"Rejoignez notre newsletter maintenant\" subtitle=\"Abonnez-vous pour recevoir des informations sur les produits et les coupons\" enable_lazy_loading=\"yes\"][/newsletter-form]</div>"
+  },
+  "About us": {
+    "name": "À propos"
+  },
+  "Terms Of Use": {
+    "name": "Conditions d'utilisation"
+  },
+  "Terms & Conditions": {
+    "name": "Termes et conditions"
+  },
+  "Refund Policy": {
+    "name": "Politique de remboursement"
+  },
+  "Blog": {
+    "name": "Blog"
+  },
+  "FAQs": {
+    "name": "FAQ"
+  },
+  "Contact": {
+    "name": "Contact"
+  },
+  "Cookie Policy": {
+    "name": "Politique des cookies"
+  },
+  "Affiliate": {
+    "name": "Affilié"
+  },
+  "Career": {
+    "name": "Carrière"
+  },
+  "Coming soon": {
+    "name": "Bientôt disponible"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "Home": {
+    "name": "Trang chủ",
+    "content": "<div>[simple-slider key=\"home-slider-vi\" ads_1=\"VC2C8Q1UGCBG\" ads_2=\"NBDWRXTSVZ8N\"][/simple-slider]</div><div>[site-features icon1=\"icon-rocket\" title1=\"Giao hàng miễn phí\" subtitle1=\"Cho tất cả đơn hàng trên 99 đô la\" icon2=\"icon-sync\" title2=\"Đổi trả trong 90 ngày\" subtitle2=\"Nếu hàng hóa có vấn đề\" icon3=\"icon-credit-card\" title3=\"Thanh toán an toàn\" subtitle3=\"Thanh toán an toàn 100%\" icon4=\"icon-bubbles\" title4=\"Hỗ trợ 24/7\" subtitle4=\"Hỗ trợ tận tâm\" icon5=\"icon-gift\" title5=\"Dịch vụ quà tặng\" subtitle5=\"Hỗ trợ dịch vụ quà tặng\" enable_lazy_loading=\"yes\"][/site-features]</div><div>[flash-sale title=\"Ưu đãi trong ngày\" flash_sale_id=\"1\" enable_lazy_loading=\"yes\"][/flash-sale]</div><div>[featured-product-categories title=\"Danh mục hàng đầu\" enable_lazy_loading=\"yes\"][/featured-product-categories]</div><div>[theme-ads key_1=\"IZ6WU8KUALYD\" key_2=\"ILSFJVYFGCPZ\" key_3=\"ZDOZUZZIU7FT\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[featured-products title=\"Sản phẩm nổi bật\" enable_lazy_loading=\"yes\"][/featured-products]</div><div>[theme-ads key_1=\"Q9YDUIC9HSWS\" key_2=\"IZ6WU8KUALYE\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[product-collections title=\"Sản phẩm độc quyền\" enable_lazy_loading=\"yes\"][/product-collections]</div><div>[product-category-products category_id=\"18\" enable_lazy_loading=\"yes\"][/product-category-products]</div>[testimonials title=\"Khách hàng nói gì về chúng tôi\" subtitle=\"Đánh giá của khách hàng\" testimonial_ids=\"1,2,3,4\" enable_lazy_loading=\"yes\"][/testimonials]<div>[download-app title=\"Tải ứng dụng Martfury ngay bây giờ!\" subtitle=\"Mua sắm nhanh chóng và dễ dàng hơn với ứng dụng của chúng tôi. Nhận liên kết để tải ứng dụng trên điện thoại của bạn.\" screenshot=\"general/app.png\" android_app_url=\"https://www.appstore.com\" ios_app_url=\"https://play.google.com/store\" enable_lazy_loading=\"yes\"][/download-app]</div><div>[product-category-products category_id=\"23\" enable_lazy_loading=\"yes\"][/product-category-products]</div><div>[newsletter-form title=\"Tham gia bản tin của chúng tôi ngay bây giờ\" subtitle=\"Đăng ký để nhận thông tin về sản phẩm và phiếu giảm giá\" enable_lazy_loading=\"yes\"][/newsletter-form]</div>"
+  },
+  "About us": {
+    "name": "Về chúng tôi"
+  },
+  "Terms Of Use": {
+    "name": "Điều khoản sử dụng"
+  },
+  "Terms & Conditions": {
+    "name": "Điều khoản và điều kiện"
+  },
+  "Refund Policy": {
+    "name": "Chính sách hoàn tiền"
+  },
+  "Blog": {
+    "name": "Tin tức"
+  },
+  "FAQs": {
+    "name": "Câu hỏi thường gặp"
+  },
+  "Contact": {
+    "name": "Liên hệ"
+  },
+  "Cookie Policy": {
+    "name": "Chính sách cookie"
+  },
+  "Affiliate": {
+    "name": "Đối tác"
+  },
+  "Career": {
+    "name": "Tuyển dụng"
+  },
+  "Coming soon": {
+    "name": "Sắp ra mắt"
+  }
+}

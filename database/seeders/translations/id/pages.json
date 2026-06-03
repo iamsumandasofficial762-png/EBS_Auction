@@ -1,0 +1,39 @@
+{
+  "Home": {
+    "name": "Beranda",
+    "content": "<div>[simple-slider key=\"home-slider-id\" ads_1=\"VC2C8Q1UGCBG\" ads_2=\"NBDWRXTSVZ8N\"][/simple-slider]</div><div>[site-features icon1=\"icon-rocket\" title1=\"Pengiriman gratis\" subtitle1=\"Untuk semua pesanan di atas $99\" icon2=\"icon-sync\" title2=\"Pengembalian 90 hari\" subtitle2=\"Jika barang bermasalah\" icon3=\"icon-credit-card\" title3=\"Pembayaran aman\" subtitle3=\"Pembayaran 100% aman\" icon4=\"icon-bubbles\" title4=\"Dukungan 24/7\" subtitle4=\"Dukungan khusus\" icon5=\"icon-gift\" title5=\"Layanan hadiah\" subtitle5=\"Dukungan layanan hadiah\" enable_lazy_loading=\"yes\"][/site-features]</div><div>[flash-sale title=\"Penawaran hari ini\" flash_sale_id=\"1\" enable_lazy_loading=\"yes\"][/flash-sale]</div><div>[featured-product-categories title=\"Kategori teratas\" enable_lazy_loading=\"yes\"][/featured-product-categories]</div><div>[theme-ads key_1=\"IZ6WU8KUALYD\" key_2=\"ILSFJVYFGCPZ\" key_3=\"ZDOZUZZIU7FT\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[featured-products title=\"Produk unggulan\" enable_lazy_loading=\"yes\"][/featured-products]</div><div>[theme-ads key_1=\"Q9YDUIC9HSWS\" key_2=\"IZ6WU8KUALYE\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[product-collections title=\"Produk eksklusif\" enable_lazy_loading=\"yes\"][/product-collections]</div><div>[product-category-products category_id=\"18\" enable_lazy_loading=\"yes\"][/product-category-products]</div>[testimonials title=\"Apa kata klien kami\" subtitle=\"Ulasan pelanggan\" testimonial_ids=\"1,2,3,4\" enable_lazy_loading=\"yes\"][/testimonials]<div>[download-app title=\"Unduh aplikasi Martfury sekarang!\" subtitle=\"Berbelanja dengan cepat dan mudah dengan aplikasi kami. Dapatkan tautan untuk mengunduh aplikasi di ponsel Anda.\" screenshot=\"general/app.png\" android_app_url=\"https://www.appstore.com\" ios_app_url=\"https://play.google.com/store\" enable_lazy_loading=\"yes\"][/download-app]</div><div>[product-category-products category_id=\"23\" enable_lazy_loading=\"yes\"][/product-category-products]</div><div>[newsletter-form title=\"Bergabunglah dengan buletin kami sekarang\" subtitle=\"Berlangganan untuk mendapatkan informasi tentang produk dan kupon\" enable_lazy_loading=\"yes\"][/newsletter-form]</div>"
+  },
+  "About us": {
+    "name": "Tentang kami"
+  },
+  "Terms Of Use": {
+    "name": "Syarat penggunaan"
+  },
+  "Terms & Conditions": {
+    "name": "Syarat dan ketentuan"
+  },
+  "Refund Policy": {
+    "name": "Kebijakan pengembalian dana"
+  },
+  "Blog": {
+    "name": "Blog"
+  },
+  "FAQs": {
+    "name": "FAQ"
+  },
+  "Contact": {
+    "name": "Kontak"
+  },
+  "Cookie Policy": {
+    "name": "Kebijakan cookie"
+  },
+  "Affiliate": {
+    "name": "Afiliasi"
+  },
+  "Career": {
+    "name": "Karir"
+  },
+  "Coming soon": {
+    "name": "Segera hadir"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "Home": {
+    "name": "الصفحة الرئيسية",
+    "content": "<div>[simple-slider key=\"home-slider-ar\" ads_1=\"VC2C8Q1UGCBG\" ads_2=\"NBDWRXTSVZ8N\"][/simple-slider]</div><div>[site-features icon1=\"icon-rocket\" title1=\"التوصيل المجاني\" subtitle1=\"لجميع الطلبات التي تزيد عن 99 دولارًا\" icon2=\"icon-sync\" title2=\"الإرجاع خلال 90 يومًا\" subtitle2=\"إذا كانت البضائع بها مشاكل\" icon3=\"icon-credit-card\" title3=\"الدفع الآمن\" subtitle3=\"دفع آمن 100٪\" icon4=\"icon-bubbles\" title4=\"الدعم على مدار الساعة\" subtitle4=\"دعم مخصص\" icon5=\"icon-gift\" title5=\"خدمة الهدايا\" subtitle5=\"دعم خدمة الهدايا\" enable_lazy_loading=\"yes\"][/site-features]</div><div>[flash-sale title=\"صفقة اليوم\" flash_sale_id=\"1\" enable_lazy_loading=\"yes\"][/flash-sale]</div><div>[featured-product-categories title=\"الفئات الأعلى\" enable_lazy_loading=\"yes\"][/featured-product-categories]</div><div>[theme-ads key_1=\"IZ6WU8KUALYD\" key_2=\"ILSFJVYFGCPZ\" key_3=\"ZDOZUZZIU7FT\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[featured-products title=\"المنتجات المميزة\" enable_lazy_loading=\"yes\"][/featured-products]</div><div>[theme-ads key_1=\"Q9YDUIC9HSWS\" key_2=\"IZ6WU8KUALYE\" enable_lazy_loading=\"yes\"][/theme-ads]</div><div>[product-collections title=\"المنتجات الحصرية\" enable_lazy_loading=\"yes\"][/product-collections]</div><div>[product-category-products category_id=\"18\" enable_lazy_loading=\"yes\"][/product-category-products]</div>[testimonials title=\"ماذا يقول عملاؤنا\" subtitle=\"تقييم العملاء\" testimonial_ids=\"1,2,3,4\" enable_lazy_loading=\"yes\"][/testimonials]<div>[download-app title=\"قم بتنزيل تطبيق Martfury الآن!\" subtitle=\"تسوق بسرعة وسهولة أكثر مع تطبيقنا. احصل على رابط لتنزيل التطبيق على هاتفك.\" screenshot=\"general/app.png\" android_app_url=\"https://www.appstore.com\" ios_app_url=\"https://play.google.com/store\" enable_lazy_loading=\"yes\"][/download-app]</div><div>[product-category-products category_id=\"23\" enable_lazy_loading=\"yes\"][/product-category-products]</div><div>[newsletter-form title=\"انضم إلى نشرتنا الإخبارية الآن\" subtitle=\"اشترك للحصول على معلومات حول المنتجات والكوبونات\" enable_lazy_loading=\"yes\"][/newsletter-form]</div>"
+  },
+  "About us": {
+    "name": "من نحن"
+  },
+  "Terms Of Use": {
+    "name": "شروط الاستخدام"
+  },
+  "Terms & Conditions": {
+    "name": "الشروط والأحكام"
+  },
+  "Refund Policy": {
+    "name": "سياسة الاسترجاع"
+  },
+  "Blog": {
+    "name": "المدونة"
+  },
+  "FAQs": {
+    "name": "الأسئلة الشائعة"
+  },
+  "Contact": {
+    "name": "اتصل بنا"
+  },
+  "Cookie Policy": {
+    "name": "سياسة ملفات تعريف الارتباط"
+  },
+  "Affiliate": {
+    "name": "الشركاء"
+  },
+  "Career": {
+    "name": "الوظائف"
+  },
+  "Coming soon": {
+    "name": "قريباً"
+  }
+}
