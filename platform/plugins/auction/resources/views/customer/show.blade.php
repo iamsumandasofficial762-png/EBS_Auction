@@ -10,14 +10,26 @@
             </div>
             <div class="col-md-7">
                 <div class="card-body">
-                    <span class="badge bg-{{ $auction->status === 'live' ? 'success' : ($auction->status === 'scheduled' ? 'warning' : 'secondary') }}">{{ Str::headline($auction->status) }}</span>
+                    <span class="badge bg-{{ $auction->isLive() ? 'success' : ($auction->isScheduled() ? 'warning' : 'secondary') }}">{{ $auction->status_label }}</span>
                     <h3 class="mt-3">{{ $auction->title }}</h3>
-                    <p class="text-muted">{{ $auction->description }}</p>
+                    <p class="text-muted">{{ $auction->short_description }}</p>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @if ($auction->condition)
+                            <span class="badge bg-light text-dark">{{ __(Str::headline($auction->condition)) }}</span>
+                        @endif
+                        @if ($auction->brand)
+                            <span class="badge bg-light text-dark">{{ $auction->brand }}</span>
+                        @endif
+                        @if ($auction->model)
+                            <span class="badge bg-light text-dark">{{ $auction->model }}</span>
+                        @endif
+                    </div>
                     <div class="row g-3 mb-4">
                         <div class="col-6"><small class="text-muted d-block">{{ __('Current bid') }}</small><strong>{{ format_price($auction->current_bid_amount) }}</strong></div>
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Minimum next bid') }}</small><strong>{{ format_price($auction->minimum_next_bid) }}</strong></div>
+                        <div class="col-6"><small class="text-muted d-block">{{ __('Minimum bid') }}</small><strong>{{ format_price($auction->minimum_next_bid) }}</strong></div>
                         <div class="col-6"><small class="text-muted d-block">{{ __('Starts') }}</small><strong>{{ $auction->start_time->translatedFormat('M d, Y H:i') }}</strong></div>
                         <div class="col-6"><small class="text-muted d-block">{{ __('Ends') }}</small><strong>{{ $auction->end_time->translatedFormat('M d, Y H:i') }}</strong></div>
+                        <div class="col-6"><small class="text-muted d-block">{{ __('Starting bid') }}</small><strong>{{ format_price($auction->starting_bid) }}</strong></div>
                     </div>
 
                     <form id="place-bid" method="POST" action="{{ route('auction.customer.bid', $auction) }}">
@@ -41,6 +53,13 @@
             {{ __('Winner: :name with :amount', ['name' => $auction->winner->name, 'amount' => format_price($auction->winningBid->amount)]) }}
         </div>
     @endif
+
+    <div class="card border-0 mb-4">
+        <div class="card-body">
+            <h4 class="h5">{{ __('Description') }}</h4>
+            <div>{!! BaseHelper::clean($auction->description) !!}</div>
+        </div>
+    </div>
 
     <div class="row g-4">
         <div class="col-md-6">

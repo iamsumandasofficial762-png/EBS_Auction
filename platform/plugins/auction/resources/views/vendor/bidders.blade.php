@@ -36,7 +36,7 @@
                         <td class="text-end">
                             <form method="POST" action="{{ route('marketplace.vendor.auctions.choose-winner', [$auction, $bid]) }}">
                                 @csrf
-                                <button class="btn btn-sm btn-primary" type="submit" @disabled($auction->end_time->greaterThan(now()) || $auction->winner_customer_id)>{{ __('Choose winner') }}</button>
+                                <button class="btn btn-sm btn-primary" type="submit" @disabled(! $auction->canChooseWinner())>{{ __('Choose winner') }}</button>
                             </form>
                         </td>
                     </tr>

@@ -32,17 +32,17 @@
                 @forelse ($auctions as $auction)
                     <tr>
                         <td>{{ $auction->title }}</td>
-                        <td><span class="badge bg-secondary">{{ Str::headline($auction->status) }}</span></td>
+                        <td><span class="badge bg-secondary">{{ $auction->status_label }}</span></td>
                         <td>{{ format_price($auction->current_bid_amount) }}</td>
                         <td>{{ $auction->bids_count }}</td>
                         <td>{{ $auction->end_time->translatedFormat('M d, Y H:i') }}</td>
                         <td class="text-end">
                             <a class="btn btn-sm btn-outline-secondary" href="{{ route('marketplace.vendor.auctions.bidders', $auction) }}">{{ __('Bidders') }}</a>
-                            <a class="btn btn-sm btn-outline-primary @if ($auction->start_time->lessThanOrEqualTo(now())) disabled @endif" href="{{ route('marketplace.vendor.auctions.edit', $auction) }}">{{ __('Edit') }}</a>
-                            <form class="d-inline" method="POST" action="{{ route('marketplace.vendor.auctions.destroy', $auction) }}" onsubmit="return confirm('{{ __('Cancel this auction?') }}')">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ route('marketplace.vendor.auctions.edit', $auction) }}">{{ __('Edit') }}</a>
+                            <form class="d-inline" method="POST" action="{{ route('marketplace.vendor.auctions.destroy', $auction) }}" onsubmit="return confirm('{{ __('Delete this auction?') }}')">
                                 @csrf
                                 @method('DELETE')
-                                <button class="btn btn-sm btn-outline-danger" type="submit">{{ __('Cancel') }}</button>
+                                <button class="btn btn-sm btn-outline-danger" type="submit" @disabled(! $auction->canVendorDelete())>{{ __('Delete') }}</button>
                             </form>
                         </td>
                     </tr>

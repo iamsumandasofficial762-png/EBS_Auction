@@ -20,6 +20,7 @@ class AuctionServiceProvider extends ServiceProvider
 
         $this
             ->setNamespace('plugins/auction')
+            ->loadAndPublishConfigurations(['auction'])
             ->loadMigrations()
             ->loadAndPublishViews()
             ->loadRoutes(['web', 'vendor']);
@@ -29,7 +30,15 @@ class AuctionServiceProvider extends ServiceProvider
                 'id' => 'auction.customer.index',
                 'priority' => 55,
                 'name' => __('Auction'),
-                'url' => fn () => route('auction.customer.index'),
+                'url' => function () {
+                    $customer = auth('customer')->user();
+
+                    if ($customer && $customer->is_vendor) {
+                        return route('marketplace.vendor.auctions.index');
+                    }
+
+                    return route('auction.customer.index');
+                },
                 'icon' => 'ti ti-gavel',
             ]);
         });

@@ -23,7 +23,21 @@ class AuctionController extends BaseController
 
         $auctions = Auction::query()
             ->withCount('bids')
-            ->whereIn('status', ['scheduled', 'live', 'closed'])
+            ->where(function ($query): void {
+                $query
+                    ->where(function ($query): void {
+                        $query
+                            ->where('status', 'published')
+                            ->where('start_time', '<=', Carbon::now())
+                            ->where('end_time', '>', Carbon::now());
+                    })
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('status', 'scheduled')
+                            ->where('end_time', '>', Carbon::now());
+                    })
+                    ->orWhere('status', 'closed');
+            })
             ->latest()
             ->paginate(12);
 
@@ -41,7 +55,7 @@ class AuctionController extends BaseController
     {
         $this->refreshAuctionStatuses();
 
-        abort_if($auction->status === 'draft' || $auction->status === 'cancelled', 404);
+        abort_if(! $auction->isVisibleToCustomers(), 404);
 
         Theme::breadcrumb()
             ->add(__('Home'), route('public.index'))
@@ -74,11 +88,18 @@ class AuctionController extends BaseController
                 }
 
                 $amount = (float) $request->input('amount');
-                $minimumBid = $lockedAuction->minimum_next_bid;
+                $highestBid = $lockedAuction->bids()->max('amount');
+                $minimumBid = $highestBid ? (float) $highestBid : (float) $lockedAuction->starting_bid;
 
-                if ($amount < $minimumBid) {
+                if (! $highestBid && $amount < $minimumBid) {
                     throw ValidationException::withMessages([
                         'amount' => __('Your bid must be at least :amount.', ['amount' => format_price($minimumBid)]),
+                    ]);
+                }
+
+                if ($highestBid && $amount <= $minimumBid) {
+                    throw ValidationException::withMessages([
+                        'amount' => __('Your bid must be greater than :amount.', ['amount' => format_price($minimumBid)]),
                     ]);
                 }
 
@@ -98,32 +119,19 @@ class AuctionController extends BaseController
     protected function refreshAuctionStatuses(): void
     {
         Auction::query()
-            ->where('status', 'scheduled')
-            ->where('start_time', '<=', Carbon::now())
-            ->where('end_time', '>', Carbon::now())
-            ->update(['status' => 'live']);
-
-        Auction::query()
-            ->whereIn('status', ['scheduled', 'live'])
+            ->whereIn('status', ['published', 'scheduled'])
             ->where('end_time', '<', Carbon::now())
             ->update(['status' => 'closed']);
     }
 
     protected function syncAuctionStatus(Auction $auction): void
     {
-        if (in_array($auction->status, ['draft', 'cancelled', 'closed'])) {
+        if (in_array($auction->status, ['draft', 'closed'])) {
             return;
         }
 
         if ($auction->end_time->lessThan(Carbon::now())) {
             $auction->status = 'closed';
-            $auction->save();
-
-            return;
-        }
-
-        if ($auction->status === 'scheduled' && $auction->start_time->lessThanOrEqualTo(Carbon::now())) {
-            $auction->status = 'live';
             $auction->save();
         }
     }

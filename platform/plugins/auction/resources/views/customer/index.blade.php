@@ -12,9 +12,12 @@
         .auction-badge--live { background: #16875b; }
         .auction-badge--scheduled { background: #f5a400; color: #111; }
         .auction-badge--closed { background: #6b7280; }
+        .auction-badge--draft { background: #6b7280; }
         .auction-meta { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
         .auction-meta span { color: #6b7280; display: block; font-size: 12px; }
         .auction-meta strong { color: #111827; font-size: 14px; }
+        .auction-card__specs { color: #4b5563; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+        .auction-card__specs span { background: #f3f4f6; border-radius: 4px; padding: 3px 6px; }
     </style>
 
     <div class="d-flex align-items-center justify-content-between mb-4">
@@ -39,16 +42,27 @@
                     @endif
                 </div>
                 <div class="p-3">
-                    <span class="auction-badge auction-badge--{{ $auction->status }}">
-                        {{ $auction->status === 'live' ? __('Live Auction') : __(Str::headline($auction->status)) }}
+                    <span class="auction-badge auction-badge--{{ $auction->status_badge_class }}">
+                        {{ $auction->status_label }}
                     </span>
                     <h4 class="h6 mt-3 mb-2">{{ $auction->title }}</h4>
-                    <p class="text-muted small mb-3">{{ Str::limit(strip_tags($auction->description), 90) }}</p>
+                    <p class="text-muted small mb-2">{{ Str::limit(strip_tags($auction->short_description), 90) }}</p>
+                    <div class="auction-card__specs mb-3">
+                        @if ($auction->condition)
+                            <span>{{ __(Str::headline($auction->condition)) }}</span>
+                        @endif
+                        @if ($auction->brand)
+                            <span>{{ $auction->brand }}</span>
+                        @endif
+                        @if ($auction->model)
+                            <span>{{ $auction->model }}</span>
+                        @endif
+                    </div>
                     <div class="auction-meta mb-3">
                         <div><span>{{ __('Current bid') }}</span><strong>{{ format_price($auction->current_bid_amount) }}</strong></div>
                         <div><span>{{ __('Time left') }}</span><strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">{{ $auction->isClosed() ? __('Closed') : __('Calculating') }}</strong></div>
                         <div><span>{{ __('Starting bid') }}</span><strong>{{ format_price($auction->starting_bid) }}</strong></div>
-                        <div><span>{{ __('Bid increment') }}</span><strong>{{ format_price($auction->bid_increment) }}</strong></div>
+                        <div><span>{{ __('Bids') }}</span><strong>{{ $auction->bids_count }}</strong></div>
                     </div>
                     <div class="d-flex gap-2">
                         <a href="{{ route('auction.customer.show', $auction) }}" class="btn btn-outline-secondary btn-sm flex-fill">{{ __('View Details') }}</a>

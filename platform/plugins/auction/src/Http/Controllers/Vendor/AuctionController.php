@@ -3,13 +3,14 @@
 namespace Botble\Auction\Http\Controllers\Vendor;
 
 use Botble\Auction\Http\Requests\CreateAuctionRequest;
+use Botble\Auction\Http\Requests\UpdateAuctionRequest;
 use Botble\Auction\Models\Auction;
 use Botble\Auction\Models\AuctionBid;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Ecommerce\Models\ProductCategory;
-use Botble\Media\Facades\RvMedia;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AuctionController extends BaseController
@@ -33,10 +34,11 @@ class AuctionController extends BaseController
         $this->pageTitle(__('Create auction'));
 
         $auction = new Auction([
-            'status' => 'scheduled',
-            'bid_increment' => 1,
+            'status' => 'draft',
             'start_time' => Carbon::now()->addHour(),
             'end_time' => Carbon::now()->addDay(),
+            'auto_winner_delay_hours' => 8,
+            'condition' => 'new',
         ]);
         $categories = ProductCategory::query()->orderBy('name')->pluck('name', 'id');
 
@@ -48,12 +50,12 @@ class AuctionController extends BaseController
         $auction = new Auction($this->prepareData($request));
         $auction->vendor_id = auth('customer')->id();
         $auction->store_id = auth('customer')->user()->store?->id;
-        $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours(8);
+        $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
         $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         $auction->save();
 
         return redirect()
-            ->route('marketplace.vendor.auctions.edit', $auction)
+            ->route('marketplace.vendor.auctions.index')
             ->with('success_msg', __('Auction has been created successfully.'));
     }
 
@@ -67,17 +69,19 @@ class AuctionController extends BaseController
         return view('plugins/auction::vendor.edit', compact('auction', 'categories'));
     }
 
-    public function update(CreateAuctionRequest $request, Auction $auction)
+    public function update(UpdateAuctionRequest $request, Auction $auction)
     {
         $this->authorizeAuction($auction);
 
-        if ($auction->start_time && $auction->start_time->lessThanOrEqualTo(Carbon::now())) {
-            return back()->with('error_msg', __('Auction cannot be edited after it starts.'));
+        $canEditCriticalFields = $auction->canVendorEditCriticalFields();
+
+        $auction->fill($this->prepareData($request, $auction, $canEditCriticalFields));
+
+        if ($canEditCriticalFields) {
+            $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
+            $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         }
 
-        $auction->fill($this->prepareData($request));
-        $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours(8);
-        $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         $auction->save();
 
         return back()->with('success_msg', __('Auction has been updated successfully.'));
@@ -87,19 +91,15 @@ class AuctionController extends BaseController
     {
         $this->authorizeAuction($auction);
 
-        if ($auction->status === 'live' && $auction->bids()->exists()) {
-            return back()->with('error_msg', __('A live auction with bids cannot be cancelled.'));
+        if (! $auction->canVendorDelete()) {
+            return back()->with('error_msg', __('This auction already has bids and cannot be deleted.'));
         }
 
-        if ($auction->bids()->exists()) {
-            $auction->update(['status' => 'cancelled']);
-        } else {
-            $auction->delete();
-        }
+        $auction->delete();
 
         return redirect()
             ->route('marketplace.vendor.auctions.index')
-            ->with('success_msg', __('Auction has been cancelled successfully.'));
+            ->with('success_msg', __('Auction has been deleted successfully.'));
     }
 
     public function bidders(Auction $auction)
@@ -123,7 +123,7 @@ class AuctionController extends BaseController
 
         abort_if((int) $bid->auction_id !== (int) $auction->getKey(), 404);
 
-        if ($auction->end_time->greaterThan(Carbon::now())) {
+        if (! $auction->canChooseWinner()) {
             return back()->with('error_msg', __('Winner can only be selected after auction closing time.'));
         }
 
@@ -142,22 +142,47 @@ class AuctionController extends BaseController
         abort_if((int) $auction->vendor_id !== (int) auth('customer')->id(), 404);
     }
 
-    protected function prepareData(Request $request): array
+    protected function prepareData(Request $request, ?Auction $auction = null, bool $includeCriticalFields = true): array
     {
-        return [
+        $data = [
+            ...$request->only([
+                'short_description',
+                'description',
+            ]),
+            'images' => $this->parseImages($request->input('images', [])),
+        ];
+
+        if (! $includeCriticalFields) {
+            return $data;
+        }
+
+        $data = [
+            ...$data,
             ...$request->only([
                 'title',
-                'description',
-                'category_id',
+                'condition',
+                'brand',
+                'model',
                 'starting_bid',
-                'bid_increment',
                 'start_time',
                 'end_time',
                 'status',
+                'auto_winner_delay_hours',
             ]),
-            'slug' => $request->input('slug') ?: Str::slug($request->input('title')) . '-' . Str::lower(Str::random(6)),
-            'images' => $this->parseImages($request->input('images')),
+            'category_id' => $request->input('category_id') ?: null,
+            'bid_increment' => 1,
+            'slug' => $request->input('slug') ?: $this->generateUniqueSlug($request->input('title'), $auction),
         ];
+
+        if (Schema::hasColumn('auction_items', 'start_at')) {
+            $data['start_at'] = $data['start_time'];
+        }
+
+        if (Schema::hasColumn('auction_items', 'end_at')) {
+            $data['end_at'] = $data['end_time'];
+        }
+
+        return $data;
     }
 
     protected function parseImages(mixed $images): array
@@ -175,33 +200,42 @@ class AuctionController extends BaseController
 
     protected function normalizeStatus(string $status, mixed $startTime, mixed $endTime): string
     {
-        if (in_array($status, ['draft', 'cancelled', 'closed'])) {
+        if (in_array($status, ['draft', 'closed'])) {
             return $status;
         }
 
-        $start = Carbon::parse($startTime);
         $end = Carbon::parse($endTime);
 
         if ($end->lessThan(Carbon::now())) {
             return 'closed';
         }
 
-        return $start->lessThanOrEqualTo(Carbon::now()) ? 'live' : 'scheduled';
+        return in_array($status, ['published', 'scheduled']) ? $status : 'draft';
     }
 
     protected function refreshAuctionStatuses(): void
     {
         Auction::query()
             ->where('vendor_id', auth('customer')->id())
-            ->where('status', 'scheduled')
-            ->where('start_time', '<=', Carbon::now())
-            ->where('end_time', '>', Carbon::now())
-            ->update(['status' => 'live']);
-
-        Auction::query()
-            ->where('vendor_id', auth('customer')->id())
-            ->whereIn('status', ['scheduled', 'live'])
+            ->whereIn('status', ['published', 'scheduled'])
             ->where('end_time', '<', Carbon::now())
             ->update(['status' => 'closed']);
+    }
+
+    protected function generateUniqueSlug(string $title, ?Auction $auction = null): string
+    {
+        $slug = Str::slug($title) ?: Str::lower(Str::random(8));
+        $originalSlug = $slug;
+        $counter = 2;
+
+        while (Auction::query()
+            ->where('slug', $slug)
+            ->when($auction?->exists, fn ($query) => $query->where($auction->getKeyName(), '!=', $auction->getKey()))
+            ->exists()) {
+            $slug = "{$originalSlug}-{$counter}";
+            $counter++;
+        }
+
+        return $slug;
     }
 }
