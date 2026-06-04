@@ -1,0 +1,15 @@
+{
+    "id": "botble/auction",
+    "name": "Auction",
+    "namespace": "Botble\\Auction\\",
+    "provider": "Botble\\Auction\\Providers\\AuctionServiceProvider",
+    "author": "EBS Auction",
+    "url": "https://marketplace.sustainverse.org",
+    "version": "1.0.0",
+    "description": "Auction bidding feature for marketplace vendors and customers.",
+    "minimum_core_version": "7.6.0",
+    "require": [
+        "botble/ecommerce",
+        "botble/marketplace"
+    ]
+}

@@ -103,6 +103,9 @@
                         ]) !!}
                         @if (is_plugin_active('ecommerce'))
                             <ul class="navigation__extra">
+                                @if (is_plugin_active('auction'))
+                                    <li class="auction-link"><a href="{{ auth('customer')->check() ? route('auction.customer.index') : route('customer.login') }}">{{ __('Auction') }}</a></li>
+                                @endif
                                 @if (is_plugin_active('marketplace') && theme_option('show_sell_on_marketplace_link', 'yes') == 'yes')
                                     <li class="sell-on-marketplace-link"><a href="{{ !auth('customer')->check() ? route('customer.register') : (auth('customer')->user()->is_vendor ? route('marketplace.vendor.dashboard') : route('marketplace.vendor.become-vendor')) }}">{{ theme_option('sell_on_site_text') ?: __('Sell On Martfury') }}</a></li>
                                 @endif
@@ -200,6 +203,9 @@
 
                 <ul class="menu--mobile menu--mobile-extra">
                     @if (is_plugin_active('ecommerce'))
+                        @if (is_plugin_active('auction'))
+                            <li><a href="{{ auth('customer')->check() ? route('auction.customer.index') : route('customer.login') }}"><x-core::icon name="ti ti-gavel" /> <span>{{ __('Auction') }}</span></a></li>
+                        @endif
                         @if (EcommerceHelper::isOrderTrackingEnabled())
                             <li><a href="{{ route('public.orders.tracking') }}"><i class="icon-check-square"></i> <span>{{ __('Track your order') }}</span></a></li>
                         @endif
