@@ -134,6 +134,8 @@ class AuctionController extends BaseController
             'status' => 'closed',
         ])->save();
 
+        $auction->notifyWinnerSelected();
+
         return back()->with('success_msg', __('Winner has been selected successfully.'));
     }
 

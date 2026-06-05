@@ -17,6 +17,18 @@ class SelectAuctionWinnersCommand extends Command
         Auction::query()
             ->whereIn('status', ['published', 'scheduled'])
             ->where('end_time', '<=', Carbon::now())
+            ->whereHas('bids')
+            ->chunkById(50, function ($auctions): void {
+                foreach ($auctions as $auction) {
+                    $auction->notifyAuctionEnded();
+                    $auction->update(['status' => 'closed']);
+                }
+            });
+
+        Auction::query()
+            ->whereIn('status', ['published', 'scheduled'])
+            ->where('end_time', '<=', Carbon::now())
+            ->whereDoesntHave('bids')
             ->update(['status' => 'closed']);
 
         $count = 0;

@@ -1,126 +1,65 @@
-@extends(EcommerceHelper::viewPath('customers.master'))
+@extends(Theme::getThemeNamespace() . '::views.ecommerce.customers.master')
 
 @section('title', __('Auction'))
 
 @section('content')
-    <style>
-        .auction-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-        .auction-card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; height: 100%; }
-        .auction-card__image { aspect-ratio: 4 / 3; background: #f3f4f6; overflow: hidden; }
-        .auction-card__image img { height: 100%; object-fit: cover; width: 100%; }
-        .auction-badge { border-radius: 4px; color: #fff; display: inline-flex; font-size: 11px; font-weight: 700; padding: 4px 8px; text-transform: uppercase; }
-        .auction-badge--live { background: #16875b; }
-        .auction-badge--scheduled { background: #f5a400; color: #111; }
-        .auction-badge--closed { background: #6b7280; }
-        .auction-badge--draft { background: #6b7280; }
-        .auction-meta { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
-        .auction-meta span { color: #6b7280; display: block; font-size: 12px; }
-        .auction-meta strong { color: #111827; font-size: 14px; }
-        .auction-card__specs { color: #4b5563; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
-        .auction-card__specs span { background: #f3f4f6; border-radius: 4px; padding: 3px 6px; }
-    </style>
+    @php
+        EcommerceHelper::registerThemeAssets();
+        $tabKeys = array_keys($tabs);
+        $activeTab = in_array($activeTab, $tabKeys) ? $activeTab : 'live';
+    @endphp
 
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <div>
-            <h3 class="mb-1">{{ __('Auction') }}</h3>
-            <p class="text-muted mb-0">{{ __('Browse live, upcoming, and recently closed auction items.') }}</p>
-        </div>
-    </div>
+    @include('plugins/auction::customer.partials.styles')
 
     @if (session('success_msg'))
         <div class="alert alert-success">{{ session('success_msg') }}</div>
     @endif
 
-    <div class="auction-grid">
-        @forelse ($auctions as $auction)
-            <div class="auction-card">
-                <div class="auction-card__image">
-                    @if ($auction->primary_image)
-                        <img src="{{ RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) }}" alt="{{ $auction->title }}">
-                    @else
-                        <img src="{{ RvMedia::getDefaultImage() }}" alt="{{ $auction->title }}">
-                    @endif
-                </div>
-                <div class="p-3">
-                    <span class="auction-badge auction-badge--{{ $auction->status_badge_class }}">
-                        {{ $auction->status_label }}
-                    </span>
-                    <h4 class="h6 mt-3 mb-2">{{ $auction->title }}</h4>
-                    <p class="text-muted small mb-2">{{ Str::limit(strip_tags($auction->short_description), 90) }}</p>
-                    <div class="auction-card__specs mb-3">
-                        @if ($auction->condition)
-                            <span>{{ __(Str::headline($auction->condition)) }}</span>
-                        @endif
-                        @if ($auction->brand)
-                            <span>{{ $auction->brand }}</span>
-                        @endif
-                        @if ($auction->model)
-                            <span>{{ $auction->model }}</span>
-                        @endif
-                    </div>
-                    <div class="auction-meta mb-3">
-                        <div><span>{{ __('Current bid') }}</span><strong>{{ format_price($auction->current_bid_amount) }}</strong></div>
-                        <div><span>{{ __('Time left') }}</span><strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">{{ $auction->isClosed() ? __('Closed') : __('Calculating') }}</strong></div>
-                        <div><span>{{ __('Starting bid') }}</span><strong>{{ format_price($auction->starting_bid) }}</strong></div>
-                        <div><span>{{ __('Bids') }}</span><strong>{{ $auction->bids_count }}</strong></div>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <a href="{{ route('auction.customer.show', $auction) }}" class="btn btn-outline-secondary btn-sm flex-fill">{{ __('View Details') }}</a>
-                        <a href="{{ route('auction.customer.show', $auction) }}#place-bid" class="btn btn-primary btn-sm flex-fill @if (! $auction->canBid(auth('customer')->user())) disabled @endif">{{ __('Place Bid') }}</a>
-                    </div>
-                </div>
+    @if ($errors->any())
+        <div class="alert alert-danger">{{ $errors->first() }}</div>
+    @endif
+
+    <div class="auction-dashboard">
+        <div class="auction-dashboard__intro">
+            <div>
+                <span class="auction-kicker">{{ __('Bidder Dashboard') }}</span>
+                <h2>{{ __('Auction items') }}</h2>
+                <p>{{ __('Track live lots, upcoming auctions, your bids, and results without exposing private bidder details.') }}</p>
             </div>
-        @empty
-            <div class="alert alert-info mb-0">{{ __('No auction items are available yet.') }}</div>
-        @endforelse
-    </div>
-
-    <div class="mt-4">
-        {{ $auctions->links() }}
-    </div>
-
-    <div class="mt-5">
-        <h4 class="h5 mb-3">{{ __('My recent bids') }}</h4>
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>{{ __('Auction') }}</th>
-                        <th>{{ __('Amount') }}</th>
-                        <th>{{ __('Date') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($myBids as $bid)
-                        <tr>
-                            <td><a href="{{ route('auction.customer.show', $bid->auction) }}">{{ $bid->auction->title }}</a></td>
-                            <td>{{ format_price($bid->amount) }}</td>
-                            <td>{{ $bid->created_at->translatedFormat('M d, Y H:i') }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="3">{{ __('You have not placed any bids yet.') }}</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
         </div>
+
+        <div class="auction-tabs" role="tablist">
+            @foreach ($tabs as $key => [$label, $items])
+                <a
+                    href="{{ route('auction.customer.index', ['tab' => $key]) }}"
+                    @class(['auction-tab', 'is-active' => $activeTab === $key])
+                >
+                    <span>{{ $label }}</span>
+                    <strong>{{ $items->count() }}</strong>
+                </a>
+            @endforeach
+        </div>
+
+        @foreach ($tabs as $key => [$label, $items])
+            <div @class(['auction-tab-panel', 'd-none' => $activeTab !== $key])>
+                @if ($key === 'notifications')
+                    @include('plugins/auction::customer.partials.notification-list', ['notifications' => $items])
+                @else
+                    <div class="auction-grid">
+                        @forelse ($items as $auction)
+                            @include('plugins/auction::customer.partials.auction-card', ['auction' => $auction])
+                        @empty
+                            <div class="auction-empty">
+                                <x-core::icon name="ti ti-gavel" />
+                                <h3>{{ __('No items here yet') }}</h3>
+                                <p>{{ __('When auctions match this tab, they will appear here.') }}</p>
+                            </div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
+        @endforeach
     </div>
 
-    <script>
-        document.querySelectorAll('[data-auction-countdown]').forEach(function (element) {
-            var end = new Date(element.dataset.auctionCountdown).getTime();
-            var render = function () {
-                var distance = end - Date.now();
-                if (distance <= 0) {
-                    element.textContent = '{{ __('Closed') }}';
-                    return;
-                }
-                var days = Math.floor(distance / 86400000);
-                var hours = Math.floor((distance % 86400000) / 3600000);
-                var minutes = Math.floor((distance % 3600000) / 60000);
-                element.textContent = days ? days + 'd ' + hours + 'h' : hours + 'h ' + minutes + 'm';
-            };
-            render();
-            setInterval(render, 60000);
-        });
-    </script>
+    @include('plugins/auction::customer.partials.scripts')
 @endsection

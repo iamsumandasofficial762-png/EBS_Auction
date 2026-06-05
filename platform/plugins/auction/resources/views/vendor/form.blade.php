@@ -229,6 +229,21 @@
                 alert(message);
             };
 
+            var showNotice = function (type, message) {
+                if (!message) {
+                    return;
+                }
+
+                if (window.Botble && Botble.showNotice) {
+                    Botble.showNotice(type, message);
+                    return;
+                }
+
+                if (type === 'error') {
+                    showError(message);
+                }
+            };
+
             var postJson = function (url, data) {
                 return fetch(url, {
                     method: 'POST',
@@ -326,6 +341,7 @@
                             form.querySelector('[data-auction-ai-short-description]').textContent = data.short_description;
                             form.querySelector('[data-auction-ai-full-description]').textContent = data.full_description;
                             descriptionResult.classList.remove('d-none');
+                            showNotice(json.fallback ? 'warning' : 'success', json.message);
                         })
                         .catch(function (error) {
                             showError(error.message);

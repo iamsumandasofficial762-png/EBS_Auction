@@ -10,6 +10,7 @@ Theme::registerRoutes(function (): void {
         ->name('auction.customer.')
         ->group(function (): void {
             Route::get('/', [AuctionController::class, 'index'])->name('index');
+            Route::post('notifications/{notification}/read', [AuctionController::class, 'readNotification'])->name('notifications.read')->wherePrimaryKey('notification');
             Route::get('{auction}', [AuctionController::class, 'show'])->name('show')->wherePrimaryKey('auction');
             Route::post('{auction}/bid', [AuctionController::class, 'bid'])->name('bid')->wherePrimaryKey('auction');
         });

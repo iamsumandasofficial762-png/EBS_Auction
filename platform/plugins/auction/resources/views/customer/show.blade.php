@@ -1,96 +1,133 @@
-@extends(EcommerceHelper::viewPath('customers.master'))
+@extends(Theme::getThemeNamespace() . '::views.ecommerce.customers.master')
 
 @section('title', $auction->title)
 
 @section('content')
-    <div class="card border-0 mb-4">
+    @php
+        EcommerceHelper::registerThemeAssets();
+        $customer = auth('customer')->user();
+        $displayStatus = $auction->customerDisplayStatus($customer?->getKey());
+        $canBid = $auction->canCustomerBid($customer);
+        $statusLabel = [
+            'live' => __('Live Auction'),
+            'pending' => __('Bid Placed'),
+            'upcoming' => __('Upcoming'),
+            'closed' => __('Closed'),
+            'waiting' => __('Waiting For Result'),
+            'won' => __('Won'),
+        ][$displayStatus] ?? $auction->status_label;
+    @endphp
+
+    @include('plugins/auction::customer.partials.styles')
+
+    @if (session('success_msg'))
+        <div class="alert alert-success">{{ session('success_msg') }}</div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger">{{ $errors->first() }}</div>
+    @endif
+
+    <div class="auction-detail">
         <div class="row g-0">
-            <div class="col-md-5">
-                <img class="w-100 h-100" style="object-fit: cover; min-height: 280px;" src="{{ $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage() }}" alt="{{ $auction->title }}">
+            <div class="col-lg-5">
+                <div class="auction-detail__gallery">
+                    <img
+                        src="{{ $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage() }}"
+                        alt="{{ $auction->title }}"
+                    >
+                </div>
             </div>
-            <div class="col-md-7">
-                <div class="card-body">
-                    <span class="badge bg-{{ $auction->isLive() ? 'success' : ($auction->isScheduled() ? 'warning' : 'secondary') }}">{{ $auction->status_label }}</span>
-                    <h3 class="mt-3">{{ $auction->title }}</h3>
+            <div class="col-lg-7">
+                <div class="auction-detail__content">
+                    <span class="auction-card__badge position-static d-inline-flex">
+                        <x-core::icon name="ti ti-gavel" />
+                        {{ $statusLabel }}
+                    </span>
+
+                    <h2>{{ $auction->title }}</h2>
                     <p class="text-muted">{{ $auction->short_description }}</p>
-                    <div class="d-flex flex-wrap gap-2 mb-3">
+
+                    <div class="auction-card__tags mb-4">
                         @if ($auction->condition)
-                            <span class="badge bg-light text-dark">{{ __(Str::headline($auction->condition)) }}</span>
+                            <span>{{ __(Str::headline($auction->condition)) }}</span>
                         @endif
                         @if ($auction->brand)
-                            <span class="badge bg-light text-dark">{{ $auction->brand }}</span>
+                            <span>{{ $auction->brand }}</span>
                         @endif
                         @if ($auction->model)
-                            <span class="badge bg-light text-dark">{{ $auction->model }}</span>
+                            <span>{{ $auction->model }}</span>
+                        @endif
+                        @if ($auction->category_id)
+                            <span>{{ $auction->category->name }}</span>
                         @endif
                     </div>
-                    <div class="row g-3 mb-4">
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Current bid') }}</small><strong>{{ format_price($auction->current_bid_amount) }}</strong></div>
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Minimum bid') }}</small><strong>{{ format_price($auction->minimum_next_bid) }}</strong></div>
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Starts') }}</small><strong>{{ $auction->start_time->translatedFormat('M d, Y H:i') }}</strong></div>
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Ends') }}</small><strong>{{ $auction->end_time->translatedFormat('M d, Y H:i') }}</strong></div>
-                        <div class="col-6"><small class="text-muted d-block">{{ __('Starting bid') }}</small><strong>{{ format_price($auction->starting_bid) }}</strong></div>
+
+                    <div class="auction-card__meta mb-4">
+                        <div>
+                            <span>{{ __('Current bid') }}</span>
+                            <strong>{{ format_price($auction->current_bid_amount) }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Minimum bid') }}</span>
+                            <strong>{{ format_price($auction->minimum_next_bid) }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Starting bid') }}</span>
+                            <strong>{{ format_price($auction->starting_bid) }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('My bid') }}</span>
+                            <strong>{{ $myBid ? format_price($myBid->amount) : __('Not placed') }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Starts') }}</span>
+                            <strong>{{ optional($auction->start_time)->translatedFormat('M d, Y H:i') }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Ends') }}</span>
+                            <strong>{{ optional($auction->end_time)->translatedFormat('M d, Y H:i') }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Time left') }}</span>
+                            <strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">
+                                {{ $auction->isEnded() ? ($auction->winner_customer_id ? $statusLabel : __('Not allocated yet')) : __('Calculating') }}
+                            </strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Result') }}</span>
+                            <strong>{{ $auction->winner_customer_id ? ($auction->isWonBy($customer?->getKey()) ? __('Won') : __('Result declared')) : ($auction->isEnded() ? __('Waiting for result') : __('In progress')) }}</strong>
+                        </div>
                     </div>
 
-                    <form id="place-bid" method="POST" action="{{ route('auction.customer.bid', $auction) }}">
-                        @csrf
-                        <label class="form-label">{{ __('Your bid') }}</label>
-                        <div class="input-group">
-                            <input class="form-control @error('amount') is-invalid @enderror" name="amount" type="number" step="0.01" min="{{ $auction->minimum_next_bid }}" value="{{ old('amount', $auction->minimum_next_bid) }}" @disabled(! $auction->canBid(auth('customer')->user()))>
-                            <button class="btn btn-primary" type="submit" @disabled(! $auction->canBid(auth('customer')->user()))>{{ __('Place Bid') }}</button>
-                        </div>
-                        @error('amount')
-                            <div class="text-danger small mt-2">{{ $message }}</div>
-                        @enderror
-                    </form>
+                    <div class="auction-card__actions">
+                        @if ($canBid)
+                            <button class="auction-btn auction-btn--primary" type="button" data-bs-toggle="modal" data-bs-target="#auction-bid-modal-{{ $auction->getKey() }}">
+                                <x-core::icon name="ti ti-gavel" />
+                                {{ __('Place Bid') }}
+                            </button>
+                        @else
+                            <button class="auction-btn auction-btn--muted" type="button" disabled>
+                                {{ $myBid ? __('Bid Placed') : ($auction->isUpcoming() ? __('Upcoming') : __('Closed')) }}
+                            </button>
+                        @endif
+                        <a class="auction-btn auction-btn--outline" href="{{ route('auction.customer.index') }}">
+                            {{ __('Back to Auctions') }}
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    @if ($auction->winner_customer_id)
-        <div class="alert alert-success">
-            {{ __('Winner: :name with :amount', ['name' => $auction->winner->name, 'amount' => format_price($auction->winningBid->amount)]) }}
-        </div>
+    <div class="auction-detail__description">
+        <h3 class="h4 mb-3">{{ __('Full description') }}</h3>
+        <div>{!! BaseHelper::clean($auction->description) !!}</div>
+    </div>
+
+    @if ($canBid)
+        @include('plugins/auction::customer.partials.bid-modal', ['auction' => $auction])
     @endif
 
-    <div class="card border-0 mb-4">
-        <div class="card-body">
-            <h4 class="h5">{{ __('Description') }}</h4>
-            <div>{!! BaseHelper::clean($auction->description) !!}</div>
-        </div>
-    </div>
-
-    <div class="row g-4">
-        <div class="col-md-6">
-            <h4 class="h5">{{ __('Your bid history') }}</h4>
-            <table class="table table-striped">
-                <tbody>
-                    @forelse ($myBids as $bid)
-                        <tr>
-                            <td>{{ format_price($bid->amount) }}</td>
-                            <td class="text-end">{{ $bid->created_at->translatedFormat('M d, Y H:i') }}</td>
-                        </tr>
-                    @empty
-                        <tr><td>{{ __('You have not bid on this auction yet.') }}</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        <div class="col-md-6">
-            <h4 class="h5">{{ __('Top bidders') }}</h4>
-            <table class="table table-striped">
-                <tbody>
-                    @forelse ($auction->bids->sortByDesc('amount')->take(10) as $bid)
-                        <tr>
-                            <td>{{ $bid->customer->name }}</td>
-                            <td class="text-end">{{ format_price($bid->amount) }}</td>
-                        </tr>
-                    @empty
-                        <tr><td>{{ __('No bids yet.') }}</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+    @include('plugins/auction::customer.partials.scripts')
 @endsection

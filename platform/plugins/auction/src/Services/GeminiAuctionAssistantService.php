@@ -23,10 +23,19 @@ class GeminiAuctionAssistantService
 
     public function generateDescription(array $details): array
     {
-        return $this->generate($this->descriptionPrompt($details), Arr::get($details, 'image'), [
+        $result = $this->generate($this->descriptionPrompt($details), Arr::get($details, 'image'), [
             'short_description',
             'full_description',
         ]);
+
+        if (($result['retryable'] ?? false) && $fallback = $this->fallbackDescription($details)) {
+            return [
+                'data' => $fallback,
+                'fallback' => true,
+            ];
+        }
+
+        return $result;
     }
 
     public function isConfigured(): bool
@@ -61,6 +70,7 @@ class GeminiAuctionAssistantService
         if ($error = ($result['error'] ?? null)) {
             return [
                 'error' => $error,
+                'retryable' => (bool) ($result['retryable'] ?? false),
             ];
         }
 
@@ -101,6 +111,7 @@ class GeminiAuctionAssistantService
             } catch (Throwable) {
                 return [
                     'error' => __('AI service is temporarily unavailable.'),
+                    'retryable' => true,
                 ];
             }
 
@@ -118,6 +129,7 @@ class GeminiAuctionAssistantService
                 return [
                     'error' => $this->apiErrorMessage($response->status(), $message),
                     'quota' => $this->isQuotaError($response->status(), $message),
+                    'retryable' => $this->isRetryableError($response->status(), $message),
                 ];
             }
         }
@@ -232,6 +244,11 @@ class GeminiAuctionAssistantService
         return $status === 429 || str_contains($message, 'quota') || str_contains($message, 'rate limit');
     }
 
+    protected function isRetryableError(int $status, string $message): bool
+    {
+        return $status >= 500 || $this->isQuotaError($status, $message);
+    }
+
     protected function isModelError(int $status, string $message): bool
     {
         $message = strtolower($message);
@@ -289,5 +306,41 @@ class GeminiAuctionAssistantService
         }
 
         return null;
+    }
+
+    protected function fallbackDescription(array $details): ?array
+    {
+        $title = trim((string) Arr::get($details, 'title'));
+
+        if ($title === '') {
+            return null;
+        }
+
+        $condition = trim((string) Arr::get($details, 'condition'));
+        $brand = trim((string) Arr::get($details, 'brand'));
+        $model = trim((string) Arr::get($details, 'model'));
+        $category = trim((string) Arr::get($details, 'category'));
+
+        $traits = array_filter([
+            $condition ? ucfirst($condition) . ' condition' : null,
+            $brand ? 'Brand: ' . $brand : null,
+            $model ? 'Model: ' . $model : null,
+            $category ? 'Category: ' . $category : null,
+        ]);
+
+        $shortDescription = str($title . ($condition ? ' in ' . strtolower($condition) . ' condition' : '') . '. Ready for auction bidding.')
+            ->limit(220, '')
+            ->toString();
+
+        $fullDescription = sprintf(
+            '<p>%s is available for auction. Review the product images and details carefully before placing your bid.</p><ul>%s</ul><p>This listing is written from the information provided by the seller. Please ask the vendor for any extra details before bidding.</p>',
+            e($title),
+            collect($traits)->map(fn (string $trait) => '<li>' . e($trait) . '</li>')->implode('')
+        );
+
+        return [
+            'short_description' => $shortDescription,
+            'full_description' => $fullDescription,
+        ];
     }
 }

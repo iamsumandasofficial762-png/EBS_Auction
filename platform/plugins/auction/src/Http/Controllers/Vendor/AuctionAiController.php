@@ -55,6 +55,10 @@ class AuctionAiController extends BaseController
 
         return response()->json([
             'success' => true,
+            'fallback' => (bool) ($result['fallback'] ?? false),
+            'message' => ($result['fallback'] ?? false)
+                ? __('Gemini quota is temporarily reached, so a basic draft was generated from your product details.')
+                : null,
             'data' => [
                 'short_description' => (string) $result['data']['short_description'],
                 'full_description' => (string) $result['data']['full_description'],

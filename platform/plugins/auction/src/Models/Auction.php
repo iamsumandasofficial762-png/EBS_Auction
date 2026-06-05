@@ -6,6 +6,7 @@ use Botble\Ecommerce\Models\Customer;
 use Botble\Ecommerce\Models\ProductCategory;
 use Botble\Marketplace\Models\Store;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -83,6 +84,11 @@ class Auction extends Model
         return $this->belongsTo(AuctionBid::class, 'winning_bid_id')->withDefault();
     }
 
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(AuctionNotification::class, 'auction_id');
+    }
+
     public function getCurrentBidAmountAttribute(): float
     {
         return $this->currentBidAmount();
@@ -147,6 +153,11 @@ class Auction extends Model
         return $this->status === 'scheduled' && $this->start_time && Carbon::now()->lessThan($this->start_time);
     }
 
+    public function isUpcoming(): bool
+    {
+        return $this->start_time && Carbon::now()->lessThan($this->start_time);
+    }
+
     public function isLive(): bool
     {
         return in_array($this->status, ['published', 'scheduled'])
@@ -158,6 +169,16 @@ class Auction extends Model
     public function isClosed(): bool
     {
         return $this->status === 'closed' || ($this->end_time && Carbon::now()->greaterThan($this->end_time));
+    }
+
+    public function isEnded(): bool
+    {
+        return $this->end_time && Carbon::now()->greaterThanOrEqualTo($this->end_time);
+    }
+
+    public function isWaitingForResult(): bool
+    {
+        return $this->isEnded() && ! $this->winner_customer_id;
     }
 
     public function hasBids(): bool
@@ -181,6 +202,35 @@ class Auction extends Model
     public function currentBidAmount(): float
     {
         return (float) ($this->bids()->max('amount') ?: $this->starting_bid);
+    }
+
+    public function getMyBid(int|string|null $customerId): ?AuctionBid
+    {
+        if (! $customerId) {
+            return null;
+        }
+
+        if ($this->relationLoaded('bids')) {
+            return $this->bids->firstWhere('customer_id', (int) $customerId);
+        }
+
+        return $this->bids()
+            ->where('customer_id', $customerId)
+            ->latest()
+            ->first();
+    }
+
+    public function hasBidFrom(int|string|null $customerId): bool
+    {
+        if (! $customerId) {
+            return false;
+        }
+
+        if ($this->relationLoaded('bids')) {
+            return $this->bids->contains('customer_id', (int) $customerId);
+        }
+
+        return $this->bids()->where('customer_id', $customerId)->exists();
     }
 
     public function minimumNextBid(): float
@@ -208,6 +258,37 @@ class Auction extends Model
             && $this->hasBids()
             && $this->end_time
             && $this->end_time->lessThanOrEqualTo(Carbon::now());
+    }
+
+    public function isWonBy(int|string|null $customerId): bool
+    {
+        return $customerId && (int) $this->winner_customer_id === (int) $customerId;
+    }
+
+    public function customerDisplayStatus(int|string|null $customerId): string
+    {
+        if ($this->isWonBy($customerId)) {
+            return 'won';
+        }
+
+        if ($this->isWaitingForResult()) {
+            return $this->hasBidFrom($customerId) ? 'waiting' : 'closed';
+        }
+
+        if ($this->isUpcoming()) {
+            return 'upcoming';
+        }
+
+        if ($this->isLive()) {
+            return $this->hasBidFrom($customerId) ? 'pending' : 'live';
+        }
+
+        return 'closed';
+    }
+
+    public function canCustomerBid(?Customer $customer): bool
+    {
+        return $this->canBid($customer) && ! $this->hasBidFrom($customer?->getKey());
     }
 
     public function isVisibleToCustomers(): bool
@@ -244,6 +325,64 @@ class Auction extends Model
         return true;
     }
 
+    public function notifyAuctionEnded(): void
+    {
+        $this->bids()
+            ->select('customer_id')
+            ->distinct()
+            ->each(function (AuctionBid $bid): void {
+                AuctionNotification::query()->firstOrCreate([
+                    'customer_id' => $bid->customer_id,
+                    'auction_id' => $this->getKey(),
+                    'type' => 'auction_ended',
+                ], [
+                    'title' => __('Auction ended'),
+                    'message' => __('Auction ended for ":title". Waiting for winner allocation.', ['title' => $this->title]),
+                ]);
+            });
+    }
+
+    public function notifyWinnerSelected(string $type = 'winner_selected'): void
+    {
+        if (! $this->winner_customer_id) {
+            return;
+        }
+
+        $this->bids()
+            ->select('customer_id')
+            ->distinct()
+            ->each(function (AuctionBid $bid) use ($type): void {
+                $won = (int) $bid->customer_id === (int) $this->winner_customer_id;
+
+                AuctionNotification::query()->firstOrCreate([
+                    'customer_id' => $bid->customer_id,
+                    'auction_id' => $this->getKey(),
+                    'type' => $won ? 'auction_won' : 'auction_lost',
+                ], [
+                    'title' => $won ? __('Auction won') : __('Auction result declared'),
+                    'message' => $won
+                        ? __('Congratulations! You won ":title".', ['title' => $this->title])
+                        : __('Auction result declared for ":title". You did not win this auction.', ['title' => $this->title]),
+                ]);
+
+                AuctionNotification::query()->firstOrCreate([
+                    'customer_id' => $bid->customer_id,
+                    'auction_id' => $this->getKey(),
+                    'type' => $type,
+                ], [
+                    'title' => $type === 'auto_winner_selected' ? __('Automatic winner selected') : __('Winner selected'),
+                    'message' => __('Winner has been selected for ":title".', ['title' => $this->title]),
+                ]);
+            });
+    }
+
+    public function scopeWithCustomerBid(Builder $query, int|string|null $customerId): Builder
+    {
+        return $query->with([
+            'bids' => fn ($query) => $query->where('customer_id', $customerId),
+        ]);
+    }
+
     public function selectAutomaticWinner(): ?AuctionBid
     {
         $winningBid = $this->bids()
@@ -262,6 +401,8 @@ class Auction extends Model
             'winner_selected_at' => Carbon::now(),
             'status' => 'closed',
         ])->save();
+
+        $this->notifyWinnerSelected('auto_winner_selected');
 
         return $winningBid;
     }
