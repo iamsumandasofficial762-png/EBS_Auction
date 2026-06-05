@@ -19,9 +19,6 @@
             <x-core::icon name="ti ti-gavel" />
             {{ $statusLabel }}
         </span>
-        <button class="auction-card__heart" type="button" aria-label="{{ __('Save auction') }}">
-            <x-core::icon name="ti ti-heart" />
-        </button>
         <img
             src="{{ $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage() }}"
             alt="{{ $auction->title }}"
@@ -43,7 +40,7 @@
             @endif
         </div>
 
-        <p>{{ Str::limit(strip_tags($auction->short_description), 130) }}</p>
+        <p>{{ Str::limit(strip_tags($auction->short_description), 95) }}</p>
 
         <div class="auction-card__meta">
             <div>

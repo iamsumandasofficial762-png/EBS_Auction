@@ -58,7 +58,7 @@
                         @if ($auction->model)
                             <span>{{ $auction->model }}</span>
                         @endif
-                        @if ($auction->category_id)
+                        @if ($auction->category_id && optional($auction->category)->name)
                             <span>{{ $auction->category->name }}</span>
                         @endif
                     </div>
@@ -71,6 +71,10 @@
                         <div>
                             <span>{{ __('Minimum bid') }}</span>
                             <strong>{{ format_price($auction->minimum_next_bid) }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('Bid increment') }}</span>
+                            <strong>{{ (float) $auction->bid_increment > 0 ? format_price($auction->bid_increment) : __('None') }}</strong>
                         </div>
                         <div>
                             <span>{{ __('Starting bid') }}</span>
@@ -98,6 +102,12 @@
                             <span>{{ __('Result') }}</span>
                             <strong>{{ $auction->winner_customer_id ? ($auction->isWonBy($customer?->getKey()) ? __('Won') : __('Result declared')) : ($auction->isEnded() ? __('Waiting for result') : __('In progress')) }}</strong>
                         </div>
+                        @if ($auction->store_id && optional($auction->store)->name)
+                            <div>
+                                <span>{{ __('Vendor') }}</span>
+                                <strong>{{ $auction->store->name }}</strong>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="auction-card__actions">

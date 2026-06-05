@@ -134,6 +134,7 @@ class AuctionController extends BaseController
 
         $auction->load([
             'category',
+            'store',
             'bids' => fn ($query) => $query->where('customer_id', $customerId),
         ]);
         $auction->loadCount('bids');

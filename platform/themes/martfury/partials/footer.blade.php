@@ -22,7 +22,7 @@
                 </div>
             @endif
             <div class="ps-footer__copyright">
-                <p class="site-copyright">{!! Theme::getSiteCopyright() !!}</p>
+                <p class="site-copyright">{!! str_replace(['Sustainverse', 'Sustain Verse'], 'EBS Auction', Theme::getSiteCopyright()) !!}</p>
                 @php $paymentMethods = array_filter(json_decode(theme_option('payment_methods', []), true)); @endphp
                 @if ($paymentMethods)
                     <div class="footer-payments">
