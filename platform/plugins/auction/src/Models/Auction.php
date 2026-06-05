@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\File;
 
 class Auction extends Model
 {
@@ -101,7 +102,76 @@ class Auction extends Model
 
     public function getPrimaryImageAttribute(): ?string
     {
-        return $this->images[0] ?? null;
+        $image = $this->images[0] ?? null;
+
+        return $image ?: null;
+    }
+
+    public function getImagesAttribute($value): array
+    {
+        $images = $this->fromJson($value) ?: [];
+
+        return collect($images)
+            ->map(fn ($image) => $this->resolveImagePath($image))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public function normalizeImagePath(string $image): string
+    {
+        $image = trim($image);
+
+        if (filter_var($image, FILTER_VALIDATE_URL)) {
+            $path = parse_url($image, PHP_URL_PATH);
+            $image = $path ? ltrim($path, '/') : $image;
+        }
+
+        $image = ltrim($image, '/');
+
+        return str($image)
+            ->replaceStart('storage/', '')
+            ->replaceStart('public/storage/', '')
+            ->toString();
+    }
+
+    public function resolveImagePath(string $image): ?string
+    {
+        $image = $this->normalizeImagePath($image);
+
+        if ($image === '') {
+            return null;
+        }
+
+        if (filter_var($image, FILTER_VALIDATE_URL)) {
+            return $image;
+        }
+
+        if ($this->imageExists($image)) {
+            return $image;
+        }
+
+        $basename = basename($image);
+
+        foreach (array_filter([
+            $this->store?->upload_folder ? $this->store->upload_folder . '/' . $basename : null,
+            $this->vendor?->upload_folder ? $this->vendor->upload_folder . '/' . $basename : null,
+            'stores/' . $basename,
+            'customers/' . $basename,
+        ]) as $candidate) {
+            if ($this->imageExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    protected function imageExists(string $image): bool
+    {
+        return File::isFile(public_path($image))
+            || File::isFile(public_path('storage/' . ltrim($image, '/')))
+            || File::isFile(storage_path('app/public/' . ltrim($image, '/')));
     }
 
     public function getStatusLabelAttribute(): string

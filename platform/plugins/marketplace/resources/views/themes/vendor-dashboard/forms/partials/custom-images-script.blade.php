@@ -106,7 +106,7 @@
                     name: '{{ File::name($item) }}',
                     size: '{{ Storage::exists($item) ? Storage::size($item) : 0 }}',
                     url: '{{ $item }}',
-                    full_url: '{{ RvMedia::getImageUrl($item, 'thumb') }}'
+                    full_url: '{{ RvMedia::getImageUrl($item, 'thumb', false, RvMedia::getImageUrl($item)) }}'
                 });
             @endforeach
 

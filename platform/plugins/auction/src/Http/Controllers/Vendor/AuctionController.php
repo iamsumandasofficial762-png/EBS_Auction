@@ -189,12 +189,18 @@ class AuctionController extends BaseController
 
     protected function parseImages(mixed $images): array
     {
+        $normalizer = new Auction();
+
         if (is_array($images)) {
-            return array_values(array_filter($images));
+            return collect($images)
+                ->map(fn ($image) => $normalizer->normalizeImagePath((string) $image))
+                ->filter()
+                ->values()
+                ->all();
         }
 
         return collect(preg_split('/[\r\n,]+/', (string) $images))
-            ->map(fn ($image) => trim($image))
+            ->map(fn ($image) => $normalizer->normalizeImagePath((string) $image))
             ->filter()
             ->values()
             ->all();
