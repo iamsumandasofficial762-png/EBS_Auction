@@ -97,9 +97,10 @@
                         </div>
                     </div>
                     <div class="navigation__right">
-                        {!! Menu::renderMenuLocation('main-menu', [
-                            'view'    => 'menu',
+                        {!! theme_render_menu_location('main-menu', [
+                            'view' => 'menu',
                             'options' => ['class' => 'menu'],
+                            'theme' => true,
                         ]) !!}
                         @if (is_plugin_active('ecommerce'))
                             <ul class="navigation__extra">
@@ -196,9 +197,10 @@
                 <h3>{{ __('Menu') }}</h3>
             </div>
             <div class="ps-panel__content">
-                {!! Menu::renderMenuLocation('main-menu', [
-                    'view'    => 'menu',
+                {!! theme_render_menu_location('main-menu', [
+                    'view' => 'menu',
                     'options' => ['class' => 'menu--mobile'],
+                    'theme' => true,
                 ]) !!}
 
                 <ul class="menu--mobile menu--mobile-extra">

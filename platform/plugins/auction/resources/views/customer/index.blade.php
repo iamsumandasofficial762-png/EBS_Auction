@@ -19,7 +19,12 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-    <div class="auction-dashboard">
+    <div
+        class="auction-dashboard"
+        data-auction-dashboard
+        data-status-feed-url="{{ route('auction.customer.status-feed') }}"
+        data-active-tab="{{ $activeTab }}"
+    >
         <div class="auction-dashboard__intro">
             <div>
                 <span class="auction-kicker">{{ __('Bidder Dashboard') }}</span>
@@ -32,31 +37,21 @@
             @foreach ($tabs as $key => [$label, $items])
                 <a
                     href="{{ route('auction.customer.index', ['tab' => $key]) }}"
+                    data-auction-tab="{{ $key }}"
                     @class(['auction-tab', 'is-active' => $activeTab === $key])
                 >
                     <span>{{ $label }}</span>
-                    <strong>{{ $items->count() }}</strong>
+                    <strong data-auction-tab-count="{{ $key }}">{{ $items->count() }}</strong>
                 </a>
             @endforeach
         </div>
 
         @foreach ($tabs as $key => [$label, $items])
-            <div @class(['auction-tab-panel', 'd-none' => $activeTab !== $key])>
-                @if ($key === 'notifications')
-                    @include('plugins/auction::customer.partials.notification-list', ['notifications' => $items])
-                @else
-                    <div class="auction-grid">
-                        @forelse ($items as $auction)
-                            @include('plugins/auction::customer.partials.auction-card', ['auction' => $auction])
-                        @empty
-                            <div class="auction-empty">
-                                <x-core::icon name="ti ti-gavel" />
-                                <h3>{{ __('No items here yet') }}</h3>
-                                <p>{{ __('When auctions match this tab, they will appear here.') }}</p>
-                            </div>
-                        @endforelse
-                    </div>
-                @endif
+            <div
+                data-auction-tab-panel="{{ $key }}"
+                @class(['auction-tab-panel', 'd-none' => $activeTab !== $key])
+            >
+                @include('plugins/auction::customer.partials.tab-panel', ['key' => $key, 'items' => $items])
             </div>
         @endforeach
     </div>

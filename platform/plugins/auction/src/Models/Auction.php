@@ -111,16 +111,18 @@ class Auction extends Model
     {
         $images = $this->fromJson($value) ?: [];
 
-        return collect($images)
+        $resolvedImages = collect($images)
             ->map(fn ($image) => $this->resolveImagePath($image))
             ->filter()
             ->values()
             ->all();
+
+        return $resolvedImages ?: $this->fallbackImagesFromMatchingAuction();
     }
 
     public function normalizeImagePath(string $image): string
     {
-        $image = trim($image);
+        $image = str_replace('\\', '/', trim($image));
 
         if (filter_var($image, FILTER_VALIDATE_URL)) {
             $path = parse_url($image, PHP_URL_PATH);
@@ -169,9 +171,42 @@ class Auction extends Model
 
     protected function imageExists(string $image): bool
     {
+        $image = str_replace('\\', '/', ltrim($image, '/'));
+
         return File::isFile(public_path($image))
-            || File::isFile(public_path('storage/' . ltrim($image, '/')))
-            || File::isFile(storage_path('app/public/' . ltrim($image, '/')));
+            || File::isFile(public_path('storage/' . $image))
+            || File::isFile(storage_path('app/public/' . $image));
+    }
+
+    protected function fallbackImagesFromMatchingAuction(): array
+    {
+        if (! $this->exists || ! $this->title) {
+            return [];
+        }
+
+        $rawImages = static::query()
+            ->whereKeyNot($this->getKey())
+            ->where('vendor_id', $this->vendor_id)
+            ->where('store_id', $this->store_id)
+            ->where('title', $this->title)
+            ->when($this->brand, fn ($query) => $query->where('brand', $this->brand))
+            ->when($this->model, fn ($query) => $query->where('model', $this->model))
+            ->whereNotNull('images')
+            ->where('images', '!=', '[]')
+            ->oldest('id')
+            ->value('images');
+
+        if (! $rawImages) {
+            return [];
+        }
+
+        $images = is_array($rawImages) ? $rawImages : ($this->fromJson($rawImages) ?: []);
+
+        return collect($images)
+            ->map(fn ($image) => $this->resolveImagePath($image))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function getStatusLabelAttribute(): string
@@ -230,10 +265,12 @@ class Auction extends Model
 
     public function isLive(): bool
     {
-        return in_array($this->status, ['published', 'scheduled'])
-            && $this->start_time
+        $now = Carbon::now();
+
+        return $this->status === 'published'
             && $this->end_time
-            && Carbon::now()->between($this->start_time, $this->end_time);
+            && (! $this->start_time || $now->greaterThanOrEqualTo($this->start_time))
+            && $now->lessThan($this->end_time);
     }
 
     public function isClosed(): bool

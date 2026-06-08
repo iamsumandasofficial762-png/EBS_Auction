@@ -112,7 +112,7 @@
                                 >
                             </a>
                         @endif
-                        <p>{!! BaseHelper::clean(str_replace('%Y', Carbon\Carbon::now()->year, theme_option('copyright'))) !!}</p>
+                        <p>{!! BaseHelper::clean(str_replace(['Sustainverse', 'Sustain Verse'], 'EBS Auction', str_replace('%Y', Carbon\Carbon::now()->year, theme_option('copyright')))) !!}</p>
                     </div>
                 </div>
             </div>

@@ -3,6 +3,7 @@
 namespace Botble\Auction\Commands;
 
 use Botble\Auction\Models\Auction;
+use Botble\Auction\Services\AuctionStatusService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -12,24 +13,9 @@ class SelectAuctionWinnersCommand extends Command
 
     protected $description = 'Close expired auctions and automatically select winners after the selection grace period.';
 
-    public function handle(): int
+    public function handle(AuctionStatusService $auctionStatusService): int
     {
-        Auction::query()
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('end_time', '<=', Carbon::now())
-            ->whereHas('bids')
-            ->chunkById(50, function ($auctions): void {
-                foreach ($auctions as $auction) {
-                    $auction->notifyAuctionEnded();
-                    $auction->update(['status' => 'closed']);
-                }
-            });
-
-        Auction::query()
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('end_time', '<=', Carbon::now())
-            ->whereDoesntHave('bids')
-            ->update(['status' => 'closed']);
+        $auctionStatusService->syncStatuses();
 
         $count = 0;
 

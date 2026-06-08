@@ -5,10 +5,45 @@ use Botble\Base\Facades\EmailHandler;
 use Botble\Ecommerce\Facades\EcommerceHelper;
 use Botble\Ecommerce\Facades\FlashSale;
 use Botble\Ecommerce\Supports\FlashSaleSupport;
+use Botble\Language\Facades\Language;
 use Botble\Media\Facades\RvMedia;
+use Botble\Menu\Facades\Menu as MenuFacade;
+use Botble\Menu\Models\Menu as MenuModel;
 use Botble\Theme\Facades\Theme;
 use Botble\Theme\Supports\ThemeSupport;
 use Botble\Widget\Events\RenderingWidgetSettings;
+
+if (! function_exists('theme_render_menu_location')) {
+    function theme_render_menu_location(string $location, array $attributes = []): ?string
+    {
+        if (! is_plugin_active('language') || count(Language::getSupportedLocales()) < 2) {
+            return MenuFacade::renderMenuLocation($location, $attributes);
+        }
+
+        Language::initModelRelations();
+
+        $query = fn (?string $localeCode) => MenuModel::query()
+            ->wherePublished()
+            ->whereHas('locations', fn ($query) => $query->where('location', $location))
+            ->when($localeCode, fn ($query) => $query->whereHas(
+                'languageMeta',
+                fn ($query) => $query->where('lang_meta_code', $localeCode)
+            ));
+
+        $menu = $query(Language::getCurrentLocaleCode())->first()
+            ?: $query(Language::getDefaultLocaleCode())->first()
+            ?: $query(null)->first();
+
+        if (! $menu) {
+            return null;
+        }
+
+        $attributes['menu'] = $menu;
+        unset($attributes['slug']);
+
+        return MenuFacade::generateMenu($attributes);
+    }
+}
 
 if (! function_exists('theme_get_autoplay_speed_options')) {
     function theme_get_autoplay_speed_options(): array

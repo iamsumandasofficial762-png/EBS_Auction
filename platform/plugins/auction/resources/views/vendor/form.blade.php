@@ -17,6 +17,9 @@
     action="{{ $action }}"
     data-ai-suggest-price-url="{{ route('marketplace.vendor.auctions.ai.suggest-price') }}"
     data-ai-generate-description-url="{{ route('marketplace.vendor.auctions.ai.generate-description') }}"
+    @if ($auction->exists)
+        data-auction-status-url="{{ route('marketplace.vendor.auctions.status', $auction) }}"
+    @endif
 >
     @csrf
     @if ($method !== 'POST')
@@ -101,11 +104,14 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">{{ __('Status') }}</label>
-                    <select class="form-control" name="status" @disabled($criticalDisabled) required>
+                    <select class="form-control" name="status" data-auction-status @disabled($criticalDisabled) required>
                         @foreach (['draft' => __('Draft'), 'published' => __('Published'), 'scheduled' => __('Scheduled'), 'closed' => __('Closed')] as $value => $label)
                             <option value="{{ $value }}" @selected(old('status', $auction->status) === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @if ($auction->exists)
+                        <small class="form-text text-muted" data-auction-live-status>{{ $auction->status_label }}</small>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
@@ -126,9 +132,10 @@
                         <button class="btn btn-sm btn-primary" type="button" data-auction-ai-use-price>{{ __('Use This Price') }}</button>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6" data-auction-start-time-group>
                     <label class="form-label">{{ __('Start time') }}</label>
-                    <input class="form-control" name="start_time" type="datetime-local" value="{{ old('start_time', optional($auction->start_time)->format('Y-m-d\\TH:i')) }}" @disabled($criticalDisabled) required>
+                    <input class="form-control" name="start_time" type="datetime-local" value="{{ old('start_time', optional($auction->start_time)->format('Y-m-d\\TH:i')) }}" data-auction-start-time @disabled($criticalDisabled)>
+                    <small class="form-text text-muted" data-auction-start-time-help></small>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">{{ __('End time') }}</label>
@@ -154,6 +161,120 @@
 
             if (!form) {
                 return;
+            }
+
+            var statusField = form.querySelector('[data-auction-status]');
+            var statusLabel = form.querySelector('[data-auction-live-status]');
+            var startTimeField = form.querySelector('[data-auction-start-time]');
+            var startTimeGroup = form.querySelector('[data-auction-start-time-group]');
+            var startTimeHelp = form.querySelector('[data-auction-start-time-help]');
+            var startTimeLocked = startTimeField && startTimeField.disabled;
+            var statusRefreshTimer = null;
+            var scheduledStartTimer = null;
+            var syncingStatusFromServer = false;
+
+            var syncStartTimeRequirement = function () {
+                if (!statusField || !startTimeField) {
+                    return;
+                }
+
+                if (startTimeLocked) {
+                    return;
+                }
+
+                var isPublished = statusField.value === 'published';
+                var isScheduled = statusField.value === 'scheduled';
+
+                startTimeField.required = isScheduled;
+                startTimeField.disabled = isPublished;
+
+                if (isPublished && ! syncingStatusFromServer) {
+                    startTimeField.value = '';
+                }
+
+                if (startTimeGroup) {
+                    startTimeGroup.classList.toggle('opacity-50', isPublished);
+                }
+
+                if (startTimeHelp) {
+                    startTimeHelp.textContent = isPublished
+                        ? '{{ __('Start time is not required for published auctions. It will start immediately.') }}'
+                        : (isScheduled ? '{{ __('Start time is required for scheduled auctions.') }}' : '');
+                }
+            };
+
+            syncStartTimeRequirement();
+            statusField && statusField.addEventListener('change', syncStartTimeRequirement);
+
+            var scheduleStartRefresh = function () {
+                if (!startTimeField || !form.dataset.auctionStatusUrl || statusField.value !== 'scheduled' || !startTimeField.value) {
+                    return;
+                }
+
+                var startAt = new Date(startTimeField.value).getTime();
+                var delay = startAt - Date.now();
+
+                if (scheduledStartTimer) {
+                    clearTimeout(scheduledStartTimer);
+                }
+
+                if (delay > 0 && delay < 2147483647) {
+                    scheduledStartTimer = setTimeout(refreshVendorAuctionStatus, delay + 1000);
+                }
+            };
+
+            var applyVendorAuctionStatus = function (data) {
+                if (!data || !data.success || !statusField) {
+                    return;
+                }
+
+                syncingStatusFromServer = true;
+                statusField.value = data.status;
+
+                var publishedOption = statusField.querySelector('option[value="published"]');
+
+                if (publishedOption) {
+                    publishedOption.textContent = data.is_live ? '{{ __('Live Auction') }}' : '{{ __('Published') }}';
+                }
+
+                if (statusLabel) {
+                    statusLabel.textContent = data.status_label;
+                    statusLabel.className = 'form-text text-muted';
+
+                    if (data.is_live) {
+                        statusLabel.classList.add('text-success', 'fw-semibold');
+                    }
+                }
+
+                syncStartTimeRequirement();
+                syncingStatusFromServer = false;
+                scheduleStartRefresh();
+            };
+
+            function refreshVendorAuctionStatus() {
+                if (!form.dataset.auctionStatusUrl) {
+                    return;
+                }
+
+                fetch(form.dataset.auctionStatusUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(applyVendorAuctionStatus)
+                    .catch(function () {
+                    });
+            }
+
+            scheduleStartRefresh();
+
+            if (form.dataset.auctionStatusUrl) {
+                statusRefreshTimer = setInterval(refreshVendorAuctionStatus, 10000);
+                refreshVendorAuctionStatus();
             }
 
             var state = {

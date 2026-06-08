@@ -6,6 +6,7 @@ use Botble\Auction\Http\Requests\CreateAuctionRequest;
 use Botble\Auction\Http\Requests\UpdateAuctionRequest;
 use Botble\Auction\Models\Auction;
 use Botble\Auction\Models\AuctionBid;
+use Botble\Auction\Services\AuctionStatusService;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Ecommerce\Models\ProductCategory;
 use Carbon\Carbon;
@@ -15,10 +16,14 @@ use Illuminate\Support\Str;
 
 class AuctionController extends BaseController
 {
+    public function __construct(protected AuctionStatusService $auctionStatusService)
+    {
+    }
+
     public function index()
     {
         $this->pageTitle(__('Auction'));
-        $this->refreshAuctionStatuses();
+        $this->auctionStatusService->syncStatuses();
 
         $auctions = Auction::query()
             ->where('vendor_id', auth('customer')->id())
@@ -50,9 +55,13 @@ class AuctionController extends BaseController
         $auction = new Auction($this->prepareData($request));
         $auction->vendor_id = auth('customer')->id();
         $auction->store_id = auth('customer')->user()->store?->id;
-        $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
+        if ($auction->end_time) {
+            $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
+        }
+
         $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         $auction->save();
+        $this->auctionStatusService->syncStatuses();
 
         return redirect()
             ->route('marketplace.vendor.auctions.index')
@@ -61,12 +70,77 @@ class AuctionController extends BaseController
 
     public function edit(Auction $auction)
     {
+        $this->auctionStatusService->syncStatuses();
+        $auction->refresh();
         $this->authorizeAuction($auction);
         $this->pageTitle(__('Edit auction'));
 
         $categories = ProductCategory::query()->orderBy('name')->pluck('name', 'id');
 
         return view('plugins/auction::vendor.edit', compact('auction', 'categories'));
+    }
+
+    public function status(Auction $auction)
+    {
+        $this->authorizeAuction($auction);
+        $this->auctionStatusService->syncStatuses();
+        $auction->refresh();
+
+        return response()->json([
+            'success' => true,
+            'status' => $auction->status,
+            'status_label' => $auction->status_label,
+            'status_badge_class' => $auction->status_badge_class,
+            'is_live' => $auction->isLive(),
+            'is_closed' => $auction->isClosed(),
+            'can_edit_critical_fields' => $auction->canVendorEditCriticalFields(),
+            'start_time' => optional($auction->start_time)->toIso8601String(),
+            'end_time' => optional($auction->end_time)->toIso8601String(),
+        ]);
+    }
+
+    public function statuses(Request $request)
+    {
+        $this->auctionStatusService->syncStatuses();
+
+        $ids = collect(explode(',', (string) $request->query('ids')))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'auctions' => [],
+            ]);
+        }
+
+        $auctions = Auction::query()
+            ->where('vendor_id', auth('customer')->id())
+            ->whereIn('id', $ids)
+            ->withCount('bids')
+            ->get()
+            ->mapWithKeys(fn (Auction $auction) => [
+                $auction->getKey() => [
+                    'id' => $auction->getKey(),
+                    'status' => $auction->status,
+                    'status_label' => $auction->status_label,
+                    'status_badge_class' => $auction->status_badge_class,
+                    'is_live' => $auction->isLive(),
+                    'is_closed' => $auction->isClosed(),
+                    'current_bid' => format_price($auction->current_bid_amount),
+                    'bids_count' => $auction->bids_count,
+                    'start_time' => optional($auction->start_time)->toIso8601String(),
+                    'end_time' => optional($auction->end_time)->toIso8601String(),
+                    'end_time_label' => optional($auction->end_time)->translatedFormat('M d, Y H:i'),
+                ],
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'auctions' => $auctions,
+        ]);
     }
 
     public function update(UpdateAuctionRequest $request, Auction $auction)
@@ -78,11 +152,15 @@ class AuctionController extends BaseController
         $auction->fill($this->prepareData($request, $auction, $canEditCriticalFields));
 
         if ($canEditCriticalFields) {
-            $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
+            if ($auction->end_time) {
+                $auction->auto_select_at = Carbon::parse($auction->end_time)->addHours((int) $auction->auto_winner_delay_hours);
+            }
+
             $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         }
 
         $auction->save();
+        $this->auctionStatusService->syncStatuses();
 
         return back()->with('success_msg', __('Auction has been updated successfully.'));
     }
@@ -176,6 +254,10 @@ class AuctionController extends BaseController
             'slug' => $request->input('slug') ?: $this->generateUniqueSlug($request->input('title'), $auction),
         ];
 
+        if (($data['status'] ?? null) === 'published') {
+            $data['start_time'] = Carbon::now(config('app.timezone'));
+        }
+
         if (Schema::hasColumn('auction_items', 'start_at')) {
             $data['start_at'] = $data['start_time'];
         }
@@ -212,22 +294,17 @@ class AuctionController extends BaseController
             return $status;
         }
 
+        if (! $endTime) {
+            return $status === 'scheduled' ? 'scheduled' : 'draft';
+        }
+
         $end = Carbon::parse($endTime);
 
-        if ($end->lessThan(Carbon::now())) {
+        if ($end->lessThanOrEqualTo(Carbon::now(config('app.timezone')))) {
             return 'closed';
         }
 
         return in_array($status, ['published', 'scheduled']) ? $status : 'draft';
-    }
-
-    protected function refreshAuctionStatuses(): void
-    {
-        Auction::query()
-            ->where('vendor_id', auth('customer')->id())
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('end_time', '<', Carbon::now())
-            ->update(['status' => 'closed']);
     }
 
     protected function generateUniqueSlug(string $title, ?Auction $auction = null): string

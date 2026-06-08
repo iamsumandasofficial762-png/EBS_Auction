@@ -3,6 +3,7 @@
 namespace Botble\Auction\Providers;
 
 use Botble\Auction\Commands\SelectAuctionWinnersCommand;
+use Botble\Auction\Commands\UpdateAuctionStatusesCommand;
 use Botble\Base\Facades\DashboardMenu;
 use Botble\Base\Traits\LoadAndPublishDataTrait;
 use Illuminate\Console\Scheduling\Schedule;
@@ -56,10 +57,12 @@ class AuctionServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SelectAuctionWinnersCommand::class,
+                UpdateAuctionStatusesCommand::class,
             ]);
         }
 
         $this->app->afterResolving(Schedule::class, function (Schedule $schedule): void {
+            $schedule->command('auction:update-statuses')->everyMinute()->withoutOverlapping();
             $schedule->command('auction:select-winners')->everyFiveMinutes();
         });
     }

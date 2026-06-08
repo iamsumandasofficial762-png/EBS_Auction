@@ -6,6 +6,7 @@ use Botble\Auction\Http\Requests\PlaceBidRequest;
 use Botble\Auction\Models\Auction;
 use Botble\Auction\Models\AuctionBid;
 use Botble\Auction\Models\AuctionNotification;
+use Botble\Auction\Services\AuctionStatusService;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\SeoHelper\Facades\SeoHelper;
 use Botble\Theme\Facades\Theme;
@@ -16,20 +17,47 @@ use Illuminate\Validation\ValidationException;
 
 class AuctionController extends BaseController
 {
+    public function __construct(protected AuctionStatusService $auctionStatusService)
+    {
+    }
+
     public function index(Request $request)
     {
-        $this->refreshAuctionStatuses();
-
-        $customer = auth('customer')->user();
-        $customerId = $customer->getKey();
-        $now = Carbon::now();
-        $closedSince = $now->copy()->subHours((int) config('plugins.auction.auction.closed_visible_hours', 8));
-        $activeTab = $request->query('tab', 'live');
-
         Theme::breadcrumb()
             ->add(__('Home'), route('public.index'))
             ->add(__('Auction'));
         SeoHelper::setTitle(__('Auction'));
+
+        $data = $this->buildDashboardData($request);
+
+        return Theme::scope('auction.customer.index', $data, 'plugins/auction::customer.index')->render();
+    }
+
+    public function statusFeed(Request $request)
+    {
+        $data = $this->buildDashboardData($request);
+
+        return response()->json([
+            'success' => true,
+            'active_tab' => $data['activeTab'],
+            'counts' => collect($data['tabs'])
+                ->map(fn (array $tab) => $tab[1]->count())
+                ->all(),
+            'html' => collect($data['tabs'])
+                ->map(fn (array $tab, string $key) => $this->renderTabHtml($key, $tab[1]))
+                ->all(),
+        ]);
+    }
+
+    protected function buildDashboardData(Request $request): array
+    {
+        $this->auctionStatusService->syncStatuses();
+
+        $customer = auth('customer')->user();
+        $customerId = $customer->getKey();
+        $now = Carbon::now(config('app.timezone'));
+        $closedSince = $now->copy()->subHours((int) config('plugins.auction.auction.closed_visible_hours', 8));
+        $activeTab = $request->query('tab', 'live');
 
         $auctionQuery = fn () => Auction::query()
             ->withCount('bids')
@@ -37,17 +65,18 @@ class AuctionController extends BaseController
             ->latest();
 
         $liveAuctions = $auctionQuery()
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('start_time', '<=', $now)
+            ->where('status', 'published')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('start_time')->orWhere('start_time', '<=', $now);
+            })
             ->where('end_time', '>', $now)
             ->whereDoesntHave('bids', fn ($query) => $query->where('customer_id', $customerId))
             ->limit(60)
             ->get();
 
         $upcomingAuctions = $auctionQuery()
-            ->where(function ($query) use ($now): void {
-                $query->where('status', 'scheduled')->orWhere('start_time', '>', $now);
-            })
+            ->where('status', 'scheduled')
+            ->where('start_time', '>', $now)
             ->where('end_time', '>', $now)
             ->limit(60)
             ->get();
@@ -57,8 +86,10 @@ class AuctionController extends BaseController
             ->where(function ($query) use ($now): void {
                 $query
                     ->where(function ($query) use ($now): void {
-                        $query->whereIn('status', ['published', 'scheduled'])
-                            ->where('start_time', '<=', $now)
+                        $query->where('status', 'published')
+                            ->where(function ($query) use ($now): void {
+                                $query->whereNull('start_time')->orWhere('start_time', '<=', $now);
+                            })
                             ->where('end_time', '>', $now);
                     })
                     ->orWhere(function ($query) use ($now): void {
@@ -69,6 +100,7 @@ class AuctionController extends BaseController
             ->get();
 
         $closedAuctions = $auctionQuery()
+            ->where('status', 'closed')
             ->where('end_time', '<=', $now)
             ->where('end_time', '>=', $closedSince)
             ->whereNull('winner_customer_id')
@@ -77,6 +109,7 @@ class AuctionController extends BaseController
 
         $waitingAuctions = $auctionQuery()
             ->whereHas('bids', fn ($query) => $query->where('customer_id', $customerId))
+            ->where('status', 'closed')
             ->where('end_time', '<=', $now)
             ->whereNull('winner_customer_id')
             ->limit(60)
@@ -104,7 +137,11 @@ class AuctionController extends BaseController
             'notifications' => [__('Notifications'), $notifications],
         ];
 
-        return Theme::scope('auction.customer.index', compact(
+        if (! array_key_exists($activeTab, $tabs)) {
+            $activeTab = 'live';
+        }
+
+        return compact(
             'activeTab',
             'closedAuctions',
             'liveAuctions',
@@ -114,12 +151,18 @@ class AuctionController extends BaseController
             'upcomingAuctions',
             'waitingAuctions',
             'wonAuctions'
-        ), 'plugins/auction::customer.index')->render();
+        );
+    }
+
+    protected function renderTabHtml(string $key, $items): string
+    {
+        return view('plugins/auction::customer.partials.tab-panel', compact('key', 'items'))->render();
     }
 
     public function show(Auction $auction)
     {
-        $this->refreshAuctionStatuses();
+        $this->auctionStatusService->syncStatuses();
+        $auction->refresh();
 
         $customer = auth('customer')->user();
         $customerId = $customer->getKey();
@@ -150,9 +193,10 @@ class AuctionController extends BaseController
 
         try {
             DB::transaction(function () use ($request, $auction, $customer): void {
-                $lockedAuction = Auction::query()->lockForUpdate()->findOrFail($auction->getKey());
+                $this->auctionStatusService->syncStatuses();
 
-                $this->syncAuctionStatus($lockedAuction);
+                $lockedAuction = Auction::query()->lockForUpdate()->findOrFail($auction->getKey());
+                $lockedAuction->refresh();
 
                 if (! $lockedAuction->canCustomerBid($customer)) {
                     throw ValidationException::withMessages([
@@ -188,6 +232,13 @@ class AuctionController extends BaseController
             throw $exception;
         }
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => __('Your bid has been placed successfully.'),
+            ]);
+        }
+
         return back()->with('success_msg', __('Your bid has been placed successfully.'));
     }
 
@@ -200,33 +251,13 @@ class AuctionController extends BaseController
         return back()->with('success_msg', __('Notification marked as read.'));
     }
 
-    protected function refreshAuctionStatuses(): void
-    {
-        Auction::query()
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('end_time', '<', Carbon::now())
-            ->whereHas('bids')
-            ->chunkById(50, function ($auctions): void {
-                foreach ($auctions as $auction) {
-                    $auction->notifyAuctionEnded();
-                    $auction->update(['status' => 'closed']);
-                }
-            });
-
-        Auction::query()
-            ->whereIn('status', ['published', 'scheduled'])
-            ->where('end_time', '<', Carbon::now())
-            ->whereDoesntHave('bids')
-            ->update(['status' => 'closed']);
-    }
-
     protected function syncAuctionStatus(Auction $auction): void
     {
         if (in_array($auction->status, ['draft', 'closed'])) {
             return;
         }
 
-        if ($auction->end_time->lessThan(Carbon::now())) {
+        if ($auction->end_time && $auction->end_time->lessThan(Carbon::now())) {
             $auction->status = 'closed';
             $auction->save();
         }
