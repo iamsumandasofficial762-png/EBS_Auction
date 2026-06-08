@@ -1,6 +1,6 @@
 @php
     $customer = auth('customer')->user();
-    $myBid = $auction->getMyBid($customer?->getKey());
+    $myBid = $auction->getBidFrom($customer?->getKey());
     $displayStatus = $auction->customerDisplayStatus($customer?->getKey());
     $canBid = $auction->canCustomerBid($customer);
     $imageUrl = $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage();

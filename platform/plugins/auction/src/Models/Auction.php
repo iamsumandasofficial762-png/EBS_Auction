@@ -313,12 +313,21 @@ class Auction extends Model
 
     public function getMyBid(int|string|null $customerId): ?AuctionBid
     {
+        return $this->getBidFrom($customerId);
+    }
+
+    public function getBidFrom(int|string|null $customerId): ?AuctionBid
+    {
         if (! $customerId) {
             return null;
         }
 
         if ($this->relationLoaded('bids')) {
-            return $this->bids->firstWhere('customer_id', (int) $customerId);
+            return $this->bids
+                ->where('customer_id', (int) $customerId)
+                ->where('auction_id', $this->getKey())
+                ->sortByDesc('created_at')
+                ->first();
         }
 
         return $this->bids()
@@ -334,7 +343,10 @@ class Auction extends Model
         }
 
         if ($this->relationLoaded('bids')) {
-            return $this->bids->contains('customer_id', (int) $customerId);
+            return $this->bids
+                ->where('customer_id', (int) $customerId)
+                ->where('auction_id', $this->getKey())
+                ->isNotEmpty();
         }
 
         return $this->bids()->where('customer_id', $customerId)->exists();

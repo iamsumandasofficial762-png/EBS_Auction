@@ -13,6 +13,7 @@ use Botble\Theme\Facades\Theme;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class AuctionController extends BaseController
@@ -222,11 +223,25 @@ class AuctionController extends BaseController
                     ]);
                 }
 
-                AuctionBid::query()->create([
+                $bidData = [
                     'auction_id' => $lockedAuction->getKey(),
                     'customer_id' => $customer->getKey(),
                     'amount' => $amount,
-                ]);
+                ];
+
+                if (Schema::hasColumn('auction_bids', 'auction_item_id')) {
+                    $bidData['auction_item_id'] = $lockedAuction->getKey();
+                }
+
+                if (Schema::hasColumn('auction_bids', 'user_id')) {
+                    $bidData['user_id'] = $customer->getKey();
+                }
+
+                if (Schema::hasColumn('auction_bids', 'bid_amount')) {
+                    $bidData['bid_amount'] = $amount;
+                }
+
+                AuctionBid::query()->create($bidData);
             });
         } catch (ValidationException $exception) {
             throw $exception;

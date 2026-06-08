@@ -12,12 +12,16 @@ class AuctionBid extends Model
 
     protected $fillable = [
         'auction_id',
+        'auction_item_id',
         'customer_id',
+        'user_id',
         'amount',
+        'bid_amount',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'bid_amount' => 'decimal:2',
     ];
 
     public function auction(): BelongsTo
