@@ -1,10 +1,13 @@
 <div class="auction-notifications">
     @forelse ($notifications as $notification)
-        <div @class(['auction-notification', 'is-unread' => ! $notification->is_read])>
+        <div @class(['auction-notification', 'is-unread' => $notification->customer_id && ! $notification->is_read])>
             <div>
                 <span>{{ __(Str::headline($notification->type)) }}</span>
                 <h3>{{ $notification->title }}</h3>
                 <p>{{ $notification->message }}</p>
+                @if ($notification->auction_id && optional($notification->auction)->title)
+                    <p><strong>{{ $notification->auction->title }}</strong></p>
+                @endif
                 <small>{{ $notification->created_at->diffForHumans() }}</small>
             </div>
             <div class="auction-notification__actions">
@@ -13,7 +16,7 @@
                         {{ __('View') }}
                     </a>
                 @endif
-                @if (! $notification->is_read)
+                @if ($notification->customer_id && ! $notification->is_read)
                     <form method="POST" action="{{ route('auction.customer.notifications.read', $notification) }}">
                         @csrf
                         <button class="auction-btn auction-btn--primary" type="submit">{{ __('Mark read') }}</button>

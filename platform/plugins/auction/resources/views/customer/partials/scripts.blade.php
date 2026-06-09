@@ -21,7 +21,21 @@
 
             if (type === 'error') {
                 alert(message);
+                return;
             }
+
+            var notice = document.createElement('div');
+            notice.className = 'alert alert-success';
+            notice.style.position = 'fixed';
+            notice.style.right = '20px';
+            notice.style.top = '20px';
+            notice.style.zIndex = '1060';
+            notice.textContent = message;
+            document.body.appendChild(notice);
+
+            setTimeout(function () {
+                notice.remove();
+            }, 3500);
         };
 
         var setText = function (container, selector, value) {
@@ -53,6 +67,7 @@
 
             if (form && button.dataset.url) {
                 form.action = button.dataset.url;
+                form.dataset.auctionId = button.dataset.auctionId || '';
             }
 
             if (amountInput && button.dataset.minimumBid) {
@@ -84,6 +99,41 @@
             setText(modal, '[data-bid-auction-sku]', button.dataset.sku);
 
             initCountdowns();
+        };
+
+        var updateAuctionBidUi = function (data) {
+            if (!data || !data.auction_id) {
+                return;
+            }
+
+            var wrappers = document.querySelectorAll(
+                '.auction-card[data-auction-id="' + data.auction_id + '"], .auction-detail-card[data-auction-id="' + data.auction_id + '"]'
+            );
+
+            wrappers.forEach(function (wrapper) {
+                var bidButton = wrapper.querySelector('[data-auction-open-bid]');
+                var myBid = wrapper.querySelector('[data-my-bid]');
+                var bidStatus = wrapper.querySelector('[data-bid-status]');
+
+                if (bidButton) {
+                    bidButton.disabled = true;
+                    bidButton.classList.remove('auction-btn--primary');
+                    bidButton.classList.add('auction-btn--muted', 'is-disabled');
+                    bidButton.removeAttribute('data-auction-open-bid');
+                    bidButton.removeAttribute('data-bs-toggle');
+                    bidButton.removeAttribute('data-bs-target');
+                    bidButton.removeAttribute('data-url');
+                    bidButton.textContent = data.button_text || '{{ __('Bid Placed') }}';
+                }
+
+                if (myBid && data.my_bid) {
+                    myBid.textContent = data.my_bid;
+                }
+
+                if (bidStatus && data.status_label) {
+                    bidStatus.textContent = data.status_label;
+                }
+            });
         };
 
         var clearCountdowns = function () {
@@ -241,7 +291,7 @@
 
             if (button) {
                 button.disabled = true;
-                button.textContent = '{{ __('Saving...') }}';
+                button.textContent = '{{ __('Placing bid...') }}';
             }
 
             fetch(form.action, {
@@ -277,7 +327,11 @@
                     }
 
                     showMessage('success', json.message);
-                    window.refreshAuctionStatus();
+                    updateAuctionBidUi(json);
+
+                    if (dashboard) {
+                        setTimeout(window.refreshAuctionStatus, 350);
+                    }
                 })
                 .catch(function (error) {
                     showMessage('error', error.message);

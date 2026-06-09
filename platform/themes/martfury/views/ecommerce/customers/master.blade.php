@@ -6,7 +6,16 @@
                     <aside class="ps-widget--account-dashboard">
                         <div class="ps-widget__content">
                             <ul>
+                                @php
+                                    $hiddenCustomerMenuIds = [
+                                        'marketplace.vendor.dashboard',
+                                        'marketplace.vendor.become-vendor',
+                                    ];
+                                @endphp
+
                                 @foreach (DashboardMenu::getAll('customer') as $item)
+                                    @continue(in_array($item['id'], $hiddenCustomerMenuIds, true))
+
                                     <li class="nav-item text-truncate" id="{{ $item['id'] }}">
                                         <a
                                             class="nav-link

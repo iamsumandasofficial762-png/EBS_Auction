@@ -123,7 +123,10 @@ class AuctionController extends BaseController
 
         $notifications = AuctionNotification::query()
             ->with('auction')
-            ->where('customer_id', $customerId)
+            ->where(function ($query) use ($customerId): void {
+                $query->where('customer_id', $customerId)
+                    ->orWhereNull('customer_id');
+            })
             ->latest()
             ->limit(60)
             ->get();
@@ -193,7 +196,7 @@ class AuctionController extends BaseController
         $customer = auth('customer')->user();
 
         try {
-            DB::transaction(function () use ($request, $auction, $customer): void {
+            $bid = DB::transaction(function () use ($request, $auction, $customer): AuctionBid {
                 $this->auctionStatusService->syncStatuses();
 
                 $lockedAuction = Auction::query()->lockForUpdate()->findOrFail($auction->getKey());
@@ -241,7 +244,7 @@ class AuctionController extends BaseController
                     $bidData['bid_amount'] = $amount;
                 }
 
-                AuctionBid::query()->create($bidData);
+                return AuctionBid::query()->create($bidData);
             });
         } catch (ValidationException $exception) {
             throw $exception;
@@ -251,6 +254,10 @@ class AuctionController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => __('Your bid has been placed successfully.'),
+                'auction_id' => $auction->getKey(),
+                'my_bid' => format_price($bid->amount),
+                'button_text' => __('Bid Placed'),
+                'status_label' => __('Bid Placed'),
             ]);
         }
 
@@ -259,6 +266,10 @@ class AuctionController extends BaseController
 
     public function readNotification(AuctionNotification $notification)
     {
+        if (! $notification->customer_id) {
+            return back()->with('success_msg', __('Notification marked as read.'));
+        }
+
         abort_if((int) $notification->customer_id !== (int) auth('customer')->id(), 404);
 
         $notification->update(['is_read' => true]);

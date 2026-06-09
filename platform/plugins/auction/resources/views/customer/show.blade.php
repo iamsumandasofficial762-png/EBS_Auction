@@ -50,6 +50,8 @@
         .auction-detail-info-item span { color: #68706b; display: block; font-size: 10px; font-weight: 800; letter-spacing: .03em; margin-bottom: 5px; text-transform: uppercase; }
         .auction-detail-info-item strong { color: #1769c2; display: block; font-size: 17px; font-weight: 800; line-height: 1.3; }
         .auction-detail-actions { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 24px; }
+        .auction-detail-actions--single { grid-template-columns: 1fr; }
+        .auction-detail-actions--single .auction-btn { width: 100%; }
         .auction-description-card { background: #fff; border: 1px solid #dce8f8; border-radius: 8px; box-shadow: 0 12px 28px rgba(31, 91, 153, .06); margin-top: 22px; padding: 28px; }
         .auction-description-card h3 { color: #10233f; font-size: 24px; font-weight: 800; margin: 0 0 14px; }
         .auction-description-card__body { color: #465363; font-size: 15px; line-height: 1.75; }
@@ -73,7 +75,7 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-    <div class="auction-detail-card auction-detail-card--{{ $displayStatus }}">
+    <div class="auction-detail-card auction-detail-card--{{ $displayStatus }}" data-auction-id="{{ $auction->getKey() }}">
         <div class="auction-detail-card__grid">
             <div class="auction-detail-gallery">
                 <img src="{{ $imageUrl }}" alt="{{ $auction->title }}">
@@ -122,11 +124,11 @@
                     </div>
                     <div class="auction-detail-info-item">
                         <span>{{ __('Status') }}</span>
-                        <strong>{{ $statusLabel }}</strong>
+                        <strong data-bid-status>{{ $statusLabel }}</strong>
                     </div>
                     <div class="auction-detail-info-item">
                         <span>{{ __('My Bid') }}</span>
-                        <strong>{{ $myBid ? format_price($myBid->amount) : __('Not placed') }}</strong>
+                        <strong data-my-bid>{{ $myBid ? format_price($myBid->amount) : __('Not placed') }}</strong>
                     </div>
                     <div class="auction-detail-info-item">
                         <span>{{ __('Result') }}</span>
@@ -146,10 +148,10 @@
                     @endif
                 </div>
 
-                <div class="auction-detail-actions">
+                <div @class(['auction-detail-actions', 'auction-detail-actions--single' => ! $canBid])>
                     @if ($canBid)
                         <button
-                            class="auction-btn auction-btn--primary"
+                            class="auction-btn auction-btn--primary js-place-bid"
                             type="button"
                             data-auction-open-bid
                             data-auction-id="{{ $auction->getKey() }}"
@@ -169,10 +171,6 @@
                         >
                             <x-core::icon name="ti ti-gavel" />
                             {{ __('Place Bid') }}
-                        </button>
-                    @else
-                        <button class="auction-btn auction-btn--muted" type="button" disabled>
-                            {{ $myBid ? __('Bid Placed') : ($auction->isUpcoming() ? __('Upcoming') : __('Closed')) }}
                         </button>
                     @endif
                     <a class="auction-btn auction-btn--outline" href="{{ route('auction.customer.index') }}">

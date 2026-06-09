@@ -30,6 +30,8 @@
     .auction-card__closing-date { grid-column: 1 / -1; }
     .auction-card__closing-date strong small { color: #68706b; display: block; font-size: 12px; font-weight: 700; margin-top: 2px; }
     .auction-card__actions { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+    .auction-card__actions--single { grid-template-columns: 1fr; }
+    .auction-card__actions--single .auction-btn { width: 100%; }
     .auction-btn { align-items: center; border-radius: 7px; display: inline-flex; font-size: 13px; font-weight: 700; gap: 6px; justify-content: center; min-height: 40px; padding: 8px 10px; text-decoration: none; }
     .auction-btn--primary { background: #1769c2; border: 1px solid #1769c2; color: #fff; }
     .auction-btn--primary:hover { background: #1056a3; color: #fff; text-decoration: none; }

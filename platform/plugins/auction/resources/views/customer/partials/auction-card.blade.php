@@ -16,7 +16,7 @@
     ][$displayStatus] ?? $auction->status_label;
 @endphp
 
-<article class="auction-card auction-card--{{ $displayStatus }}">
+<article class="auction-card auction-card--{{ $displayStatus }}" data-auction-id="{{ $auction->getKey() }}">
     <div class="auction-card__media">
         <span class="auction-card__badge">
             <x-core::icon name="ti ti-gavel" />
@@ -65,10 +65,10 @@
             </div>
         </div>
 
-        <div class="auction-card__actions">
+        <div @class(['auction-card__actions', 'auction-card__actions--single' => ! $canBid])>
             @if ($canBid)
                 <button
-                    class="auction-btn auction-btn--primary"
+                    class="auction-btn auction-btn--primary js-place-bid"
                     type="button"
                     data-auction-open-bid
                     data-auction-id="{{ $auction->getKey() }}"
@@ -89,10 +89,6 @@
                 >
                     <x-core::icon name="ti ti-gavel" />
                     {{ __('Place Bid') }}
-                </button>
-            @else
-                <button class="auction-btn auction-btn--muted" type="button" disabled>
-                    {{ $myBid ? __('Bid Placed') : ($auction->isUpcoming() ? __('Upcoming') : __('Closed')) }}
                 </button>
             @endif
 

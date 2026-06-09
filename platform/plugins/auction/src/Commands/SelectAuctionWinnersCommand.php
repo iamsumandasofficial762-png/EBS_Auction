@@ -3,6 +3,7 @@
 namespace Botble\Auction\Commands;
 
 use Botble\Auction\Models\Auction;
+use Botble\Auction\Services\AuctionNotificationService;
 use Botble\Auction\Services\AuctionStatusService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -13,7 +14,7 @@ class SelectAuctionWinnersCommand extends Command
 
     protected $description = 'Close expired auctions and automatically select winners after the selection grace period.';
 
-    public function handle(AuctionStatusService $auctionStatusService): int
+    public function handle(AuctionStatusService $auctionStatusService, AuctionNotificationService $notificationService): int
     {
         $auctionStatusService->syncStatuses();
 
@@ -32,7 +33,8 @@ class SelectAuctionWinnersCommand extends Command
                         continue;
                     }
 
-                    if ($auction->selectAutomaticWinner()) {
+                    if ($winningBid = $auction->selectAutomaticWinner()) {
+                        $notificationService->notifyWinnerSelected($auction, $winningBid, true);
                         $count++;
                     }
                 }

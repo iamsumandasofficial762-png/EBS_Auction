@@ -5,6 +5,7 @@ namespace Botble\Auction\Models;
 use Botble\Ecommerce\Models\Customer;
 use Botble\Ecommerce\Models\ProductCategory;
 use Botble\Marketplace\Models\Store;
+use Botble\Auction\Services\AuctionNotificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -446,53 +447,20 @@ class Auction extends Model
 
     public function notifyAuctionEnded(): void
     {
-        $this->bids()
-            ->select('customer_id')
-            ->distinct()
-            ->each(function (AuctionBid $bid): void {
-                AuctionNotification::query()->firstOrCreate([
-                    'customer_id' => $bid->customer_id,
-                    'auction_id' => $this->getKey(),
-                    'type' => 'auction_ended',
-                ], [
-                    'title' => __('Auction ended'),
-                    'message' => __('Auction ended for ":title". Waiting for winner allocation.', ['title' => $this->title]),
-                ]);
-            });
+        app(AuctionNotificationService::class)->notifyAuctionClosed($this);
     }
 
     public function notifyWinnerSelected(string $type = 'winner_selected'): void
     {
-        if (! $this->winner_customer_id) {
+        if (! $this->winner_customer_id || ! $this->winning_bid_id) {
             return;
         }
 
-        $this->bids()
-            ->select('customer_id')
-            ->distinct()
-            ->each(function (AuctionBid $bid) use ($type): void {
-                $won = (int) $bid->customer_id === (int) $this->winner_customer_id;
+        $winningBid = $this->winningBid()->first();
 
-                AuctionNotification::query()->firstOrCreate([
-                    'customer_id' => $bid->customer_id,
-                    'auction_id' => $this->getKey(),
-                    'type' => $won ? 'auction_won' : 'auction_lost',
-                ], [
-                    'title' => $won ? __('Auction won') : __('Auction result declared'),
-                    'message' => $won
-                        ? __('Congratulations! You won ":title".', ['title' => $this->title])
-                        : __('Auction result declared for ":title". You did not win this auction.', ['title' => $this->title]),
-                ]);
-
-                AuctionNotification::query()->firstOrCreate([
-                    'customer_id' => $bid->customer_id,
-                    'auction_id' => $this->getKey(),
-                    'type' => $type,
-                ], [
-                    'title' => $type === 'auto_winner_selected' ? __('Automatic winner selected') : __('Winner selected'),
-                    'message' => __('Winner has been selected for ":title".', ['title' => $this->title]),
-                ]);
-            });
+        if ($winningBid) {
+            app(AuctionNotificationService::class)->notifyWinnerSelected($this, $winningBid, $type === 'auto_winner_selected');
+        }
     }
 
     public function scopeWithCustomerBid(Builder $query, int|string|null $customerId): Builder
@@ -520,8 +488,6 @@ class Auction extends Model
             'winner_selected_at' => Carbon::now(),
             'status' => 'closed',
         ])->save();
-
-        $this->notifyWinnerSelected('auto_winner_selected');
 
         return $winningBid;
     }

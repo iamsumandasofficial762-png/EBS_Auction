@@ -6,6 +6,7 @@ use Botble\Auction\Http\Requests\CreateAuctionRequest;
 use Botble\Auction\Http\Requests\UpdateAuctionRequest;
 use Botble\Auction\Models\Auction;
 use Botble\Auction\Models\AuctionBid;
+use Botble\Auction\Services\AuctionNotificationService;
 use Botble\Auction\Services\AuctionStatusService;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Ecommerce\Models\ProductCategory;
@@ -16,7 +17,10 @@ use Illuminate\Support\Str;
 
 class AuctionController extends BaseController
 {
-    public function __construct(protected AuctionStatusService $auctionStatusService)
+    public function __construct(
+        protected AuctionStatusService $auctionStatusService,
+        protected AuctionNotificationService $notificationService
+    )
     {
     }
 
@@ -61,6 +65,7 @@ class AuctionController extends BaseController
 
         $auction->status = $this->normalizeStatus($auction->status, $auction->start_time, $auction->end_time);
         $auction->save();
+        $this->notificationService->notifyNewAuction($auction);
         $this->auctionStatusService->syncStatuses();
 
         return redirect()
@@ -148,6 +153,7 @@ class AuctionController extends BaseController
         $this->authorizeAuction($auction);
 
         $canEditCriticalFields = $auction->canVendorEditCriticalFields();
+        $originalStatus = $auction->status;
 
         $auction->fill($this->prepareData($request, $auction, $canEditCriticalFields));
 
@@ -160,6 +166,13 @@ class AuctionController extends BaseController
         }
 
         $auction->save();
+
+        if (! in_array($originalStatus, ['published', 'scheduled'], true) && in_array($auction->status, ['published', 'scheduled'], true)) {
+            $this->notificationService->notifyNewAuction($auction);
+        } elseif ($originalStatus === 'scheduled' && $auction->status === 'published') {
+            $this->notificationService->notifyAuctionLive($auction);
+        }
+
         $this->auctionStatusService->syncStatuses();
 
         return back()->with('success_msg', __('Auction has been updated successfully.'));
@@ -212,7 +225,7 @@ class AuctionController extends BaseController
             'status' => 'closed',
         ])->save();
 
-        $auction->notifyWinnerSelected();
+        $this->notificationService->notifyWinnerSelected($auction, $bid);
 
         return back()->with('success_msg', __('Winner has been selected successfully.'));
     }
