@@ -1,10 +1,26 @@
 <div class="auction-notifications">
     @forelse ($notifications as $notification)
-        <div @class(['auction-notification', 'is-unread' => $notification->customer_id && ! $notification->is_read])>
+        @php
+            $bidderName = auth('customer')->user()?->name;
+            $typeLabel = [
+                'new_auction' => __('INFO'),
+                'auction_live' => __('SUCCESS'),
+                'auction_closed' => __('WARNING'),
+                'auction_result' => __('INFO'),
+                'auction_won' => __('SUCCESS'),
+                'auction_lost' => __('INFO'),
+            ][$notification->type] ?? __(Str::headline($notification->type));
+        @endphp
+
+        <div
+            @class(['auction-notification', 'is-unread' => ! $notification->is_read, 'is-read' => $notification->is_read])
+            data-notification-card="{{ $notification->getKey() }}"
+            data-is-unread="{{ ! $notification->is_read ? '1' : '0' }}"
+        >
             <div>
-                <span>{{ __(Str::headline($notification->type)) }}</span>
+                <span>{{ $typeLabel }}</span>
                 <h3>{{ $notification->title }}</h3>
-                <p>{{ $notification->message }}</p>
+                <p>{{ trim(($bidderName ? $bidderName . ' ' : '') . $notification->message) }}</p>
                 @if ($notification->auction_id && optional($notification->auction)->title)
                     <p><strong>{{ $notification->auction->title }}</strong></p>
                 @endif
@@ -15,13 +31,24 @@
                     <a class="auction-btn auction-btn--outline" href="{{ route('auction.customer.show', $notification->auction_id) }}">
                         {{ __('View') }}
                     </a>
+                @else
+                    <button class="auction-btn auction-btn--muted" type="button" disabled>{{ __('View') }}</button>
                 @endif
-                @if ($notification->customer_id && ! $notification->is_read)
-                    <form method="POST" action="{{ route('auction.customer.notifications.read', $notification) }}">
-                        @csrf
-                        <button class="auction-btn auction-btn--primary" type="submit">{{ __('Mark read') }}</button>
-                    </form>
-                @endif
+                <form method="POST" action="{{ route('auction.customer.notifications.read', $notification) }}" data-notification-read-form>
+                    @csrf
+                    <button
+                        @class(['auction-btn', 'auction-btn--primary' => ! $notification->is_read, 'auction-btn--muted is-read-button' => $notification->is_read])
+                        type="submit"
+                        @disabled($notification->is_read)
+                    >
+                        {{ $notification->is_read ? __('Read') : __('Mark as Read') }}
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('auction.customer.notifications.delete', $notification) }}" data-notification-delete-form>
+                    @csrf
+                    @method('DELETE')
+                    <button class="auction-btn auction-btn--outline auction-btn--danger" type="submit">{{ __('Delete') }}</button>
+                </form>
             </div>
         </div>
     @empty

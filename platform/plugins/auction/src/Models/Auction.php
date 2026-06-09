@@ -108,6 +108,21 @@ class Auction extends Model
         return $image ?: null;
     }
 
+    public function autoSelectAt(): ?Carbon
+    {
+        if ($this->auto_select_at) {
+            return $this->auto_select_at instanceof Carbon
+                ? $this->auto_select_at
+                : Carbon::parse($this->auto_select_at);
+        }
+
+        if (! $this->end_time) {
+            return null;
+        }
+
+        return $this->end_time->copy()->addHours($this->auto_winner_delay_hours ?: 8);
+    }
+
     public function getImagesAttribute($value): array
     {
         $images = $this->fromJson($value) ?: [];
@@ -369,7 +384,7 @@ class Auction extends Model
 
     public function canVendorDelete(): bool
     {
-        return ! $this->hasBids();
+        return $this->isClosed() || ! $this->hasBids();
     }
 
     public function canChooseWinner(): bool

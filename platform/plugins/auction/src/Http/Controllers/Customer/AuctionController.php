@@ -7,6 +7,7 @@ use Botble\Auction\Models\Auction;
 use Botble\Auction\Models\AuctionBid;
 use Botble\Auction\Models\AuctionNotification;
 use Botble\Auction\Services\AuctionStatusService;
+use Botble\Auction\Services\AuctionWinnerService;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\SeoHelper\Facades\SeoHelper;
 use Botble\Theme\Facades\Theme;
@@ -18,7 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuctionController extends BaseController
 {
-    public function __construct(protected AuctionStatusService $auctionStatusService)
+    public function __construct(
+        protected AuctionStatusService $auctionStatusService,
+        protected AuctionWinnerService $auctionWinnerService
+    )
     {
     }
 
@@ -42,7 +46,7 @@ class AuctionController extends BaseController
             'success' => true,
             'active_tab' => $data['activeTab'],
             'counts' => collect($data['tabs'])
-                ->map(fn (array $tab) => $tab[1]->count())
+                ->map(fn (array $tab, string $key) => $key === 'notifications' ? $data['unreadNotificationCount'] : $tab[1]->count())
                 ->all(),
             'html' => collect($data['tabs'])
                 ->map(fn (array $tab, string $key) => $this->renderTabHtml($key, $tab[1]))
@@ -53,6 +57,7 @@ class AuctionController extends BaseController
     protected function buildDashboardData(Request $request): array
     {
         $this->auctionStatusService->syncStatuses();
+        $this->auctionWinnerService->selectDueAutomaticWinners();
 
         $customer = auth('customer')->user();
         $customerId = $customer->getKey();
@@ -84,19 +89,12 @@ class AuctionController extends BaseController
 
         $pendingAuctions = $auctionQuery()
             ->whereHas('bids', fn ($query) => $query->where('customer_id', $customerId))
+            ->where('status', 'published')
             ->where(function ($query) use ($now): void {
-                $query
-                    ->where(function ($query) use ($now): void {
-                        $query->where('status', 'published')
-                            ->where(function ($query) use ($now): void {
-                                $query->whereNull('start_time')->orWhere('start_time', '<=', $now);
-                            })
-                            ->where('end_time', '>', $now);
-                    })
-                    ->orWhere(function ($query) use ($now): void {
-                        $query->where('end_time', '<=', $now)->whereNull('winner_customer_id');
-                    });
+                $query->whereNull('start_time')->orWhere('start_time', '<=', $now);
             })
+            ->where('end_time', '>', $now)
+            ->whereNull('winner_customer_id')
             ->limit(60)
             ->get();
 
@@ -104,7 +102,19 @@ class AuctionController extends BaseController
             ->where('status', 'closed')
             ->where('end_time', '<=', $now)
             ->where('end_time', '>=', $closedSince)
-            ->whereNull('winner_customer_id')
+            ->where(function ($query) use ($customerId): void {
+                $query
+                    ->where(function ($query) use ($customerId): void {
+                        $query
+                            ->whereNull('winner_customer_id')
+                            ->whereDoesntHave('bids', fn ($query) => $query->where('customer_id', $customerId));
+                    })
+                    ->orWhere(function ($query) use ($customerId): void {
+                        $query
+                            ->whereNotNull('winner_customer_id')
+                            ->where('winner_customer_id', '!=', $customerId);
+                    });
+            })
             ->limit(60)
             ->get();
 
@@ -131,6 +141,8 @@ class AuctionController extends BaseController
             ->limit(60)
             ->get();
 
+        $unreadNotificationCount = $this->unreadNotificationsCount();
+
         $tabs = [
             'live' => [__('Live Auctions'), $liveAuctions],
             'pending' => [__('Pending Auctions'), $pendingAuctions],
@@ -150,6 +162,7 @@ class AuctionController extends BaseController
             'closedAuctions',
             'liveAuctions',
             'notifications',
+            'unreadNotificationCount',
             'pendingAuctions',
             'tabs',
             'upcomingAuctions',
@@ -166,6 +179,7 @@ class AuctionController extends BaseController
     public function show(Auction $auction)
     {
         $this->auctionStatusService->syncStatuses();
+        $this->auctionWinnerService->selectDueAutomaticWinners();
         $auction->refresh();
 
         $customer = auth('customer')->user();
@@ -187,8 +201,9 @@ class AuctionController extends BaseController
         $auction->loadCount('bids');
 
         $myBid = $auction->getMyBid($customerId);
+        $hasBid = $myBid !== null;
 
-        return Theme::scope('auction.customer.show', compact('auction', 'myBid'), 'plugins/auction::customer.show')->render();
+        return Theme::scope('auction.customer.show', compact('auction', 'myBid', 'hasBid'), 'plugins/auction::customer.show')->render();
     }
 
     public function bid(PlaceBidRequest $request, Auction $auction)
@@ -211,18 +226,11 @@ class AuctionController extends BaseController
                 }
 
                 $amount = (float) $request->input('amount');
-                $highestBid = $lockedAuction->bids()->max('amount');
-                $minimumBid = $highestBid ? (float) $highestBid : (float) $lockedAuction->starting_bid;
+                $setAmount = (float) $lockedAuction->starting_bid;
 
-                if (! $highestBid && $amount < $minimumBid) {
+                if ($amount < $setAmount) {
                     throw ValidationException::withMessages([
-                        'amount' => __('Your bid must be at least :amount.', ['amount' => format_price($minimumBid)]),
-                    ]);
-                }
-
-                if ($highestBid && $amount <= $minimumBid) {
-                    throw ValidationException::withMessages([
-                        'amount' => __('Your bid must be greater than :amount.', ['amount' => format_price($minimumBid)]),
+                        'amount' => __('Your bid must be at least :amount.', ['amount' => format_price($setAmount)]),
                     ]);
                 }
 
@@ -266,15 +274,60 @@ class AuctionController extends BaseController
 
     public function readNotification(AuctionNotification $notification)
     {
-        if (! $notification->customer_id) {
-            return back()->with('success_msg', __('Notification marked as read.'));
-        }
-
-        abort_if((int) $notification->customer_id !== (int) auth('customer')->id(), 404);
+        $this->authorizeNotification($notification);
 
         $notification->update(['is_read' => true]);
 
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => __('Notification marked as read.'),
+                'notification_id' => $notification->getKey(),
+                'unread_count' => $this->unreadNotificationsCount(),
+            ]);
+        }
+
         return back()->with('success_msg', __('Notification marked as read.'));
+    }
+
+    public function deleteNotification(AuctionNotification $notification)
+    {
+        $this->authorizeNotification($notification);
+
+        $notification->delete();
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => __('Notification deleted.'),
+                'notification_id' => $notification->getKey(),
+                'unread_count' => $this->unreadNotificationsCount(),
+                'notifications_count' => $this->visibleNotificationsQuery()->count(),
+            ]);
+        }
+
+        return back()->with('success_msg', __('Notification deleted.'));
+    }
+
+    protected function authorizeNotification(AuctionNotification $notification): void
+    {
+        abort_if($notification->customer_id && (int) $notification->customer_id !== (int) auth('customer')->id(), 404);
+    }
+
+    protected function unreadNotificationsCount(): int
+    {
+        return (clone $this->visibleNotificationsQuery())->where('is_read', false)->count();
+    }
+
+    protected function visibleNotificationsQuery()
+    {
+        $customerId = auth('customer')->id();
+
+        return AuctionNotification::query()
+            ->where(function ($query) use ($customerId): void {
+                $query->where('customer_id', $customerId)
+                    ->orWhereNull('customer_id');
+            });
     }
 
     protected function syncAuctionStatus(Auction $auction): void

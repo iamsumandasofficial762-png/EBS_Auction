@@ -6,6 +6,16 @@
     $imageUrl = $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage();
     $conditionLabel = $auction->condition ? __(Str::headline($auction->condition)) : null;
     $sku = $auction->sku ?? null;
+    $autoSelectAt = $auction->autoSelectAt();
+    $tab = $tab ?? request('tab', 'live');
+    $now = \Carbon\Carbon::now(config('app.timezone'));
+    $liveStartedAt = $auction->start_time ?: $auction->created_at;
+    $liveNowUntil = $liveStartedAt ? $liveStartedAt->copy()->addHour() : null;
+    $showLiveNowBadge = $auction->status === 'published'
+        && $auction->end_time
+        && $auction->end_time->greaterThan($now)
+        && $liveStartedAt
+        && $now->between($liveStartedAt, $liveNowUntil);
     $statusLabel = [
         'live' => __('Live Auction'),
         'pending' => __('Live Auction'),
@@ -14,6 +24,28 @@
         'waiting' => __('Waiting Result'),
         'won' => __('Won'),
     ][$displayStatus] ?? $auction->status_label;
+    $countdownLabel = __('Closes in');
+    $countdownTarget = $auction->end_time;
+    $countdownText = null;
+    $expiredText = __('Closed');
+
+    if ($tab === 'upcoming' || $auction->status === 'scheduled') {
+        $countdownLabel = __('Live starts in');
+        $countdownTarget = $auction->start_time;
+        $expiredText = __('Starting...');
+    } elseif ($tab === 'waiting' || $displayStatus === 'waiting') {
+        $countdownLabel = __('Result declear in');
+        $countdownTarget = $autoSelectAt;
+        $expiredText = __('Selecting winner...');
+    } elseif ($tab === 'closed' || $displayStatus === 'closed') {
+        $countdownLabel = __('Status');
+        $countdownTarget = null;
+        $countdownText = __('Closed');
+    } elseif ($tab === 'won' || $displayStatus === 'won') {
+        $countdownLabel = __('Status');
+        $countdownTarget = null;
+        $countdownText = __('Won');
+    }
 @endphp
 
 <article class="auction-card auction-card--{{ $displayStatus }}" data-auction-id="{{ $auction->getKey() }}">
@@ -22,10 +54,15 @@
             <x-core::icon name="ti ti-gavel" />
             {{ $statusLabel }}
         </span>
-        <img
-            src="{{ $imageUrl }}"
-            alt="{{ $auction->title }}"
-        >
+        @if ($showLiveNowBadge)
+            <span
+                class="auction-live-now-badge"
+                data-live-now-until="{{ optional($liveNowUntil)->toIso8601String() }}"
+            >
+                {{ __('Live Now') }}
+            </span>
+        @endif
+        @include('plugins/auction::customer.partials.image-slider', ['auction' => $auction, 'variant' => 'card'])
     </div>
 
     <div class="auction-card__body">
@@ -51,10 +88,17 @@
                 <strong>{{ format_price($auction->starting_bid) }}</strong>
             </div>
             <div>
-                <span>{{ __('Time left') }}</span>
-                <strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">
-                    {{ $auction->isEnded() ? __('Closed') : __('Calculating') }}
-                </strong>
+                <span>{{ $countdownLabel }}</span>
+                @if ($countdownTarget)
+                    <strong
+                        data-countdown-target="{{ optional($countdownTarget)->toIso8601String() }}"
+                        data-expired-text="{{ $expiredText }}"
+                    >
+                        {{ $countdownTarget->isPast() ? $expiredText : __('Calculating') }}
+                    </strong>
+                @else
+                    <strong>{{ $countdownText }}</strong>
+                @endif
             </div>
             <div class="auction-card__closing-date">
                 <span>{{ __('Closing Date') }}</span>
@@ -77,6 +121,7 @@
                     data-minimum-bid="{{ $auction->minimum_next_bid }}"
                     data-url="{{ route('auction.customer.bid', $auction) }}"
                     data-image="{{ $imageUrl }}"
+                    data-set-amount-raw="{{ $auction->starting_bid }}"
                     data-set-amount="{{ format_price($auction->starting_bid) }}"
                     data-end-time="{{ optional($auction->end_time)->format('M d, Y h:i A') }}"
                     data-countdown="{{ optional($auction->end_time)->toIso8601String() }}"

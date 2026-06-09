@@ -134,6 +134,7 @@ class AuctionController extends BaseController
                     'status_badge_class' => $auction->status_badge_class,
                     'is_live' => $auction->isLive(),
                     'is_closed' => $auction->isClosed(),
+                    'can_delete' => $auction->canVendorDelete(),
                     'current_bid' => format_price($auction->current_bid_amount),
                     'bids_count' => $auction->bids_count,
                     'start_time' => optional($auction->start_time)->toIso8601String(),
@@ -183,7 +184,7 @@ class AuctionController extends BaseController
         $this->authorizeAuction($auction);
 
         if (! $auction->canVendorDelete()) {
-            return back()->with('error_msg', __('This auction already has bids and cannot be deleted.'));
+            return back()->with('error_msg', __('Only closed auctions or auctions without bids can be deleted.'));
         }
 
         $auction->delete();

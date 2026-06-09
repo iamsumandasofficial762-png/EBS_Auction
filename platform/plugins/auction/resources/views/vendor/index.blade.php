@@ -383,6 +383,7 @@
                             var currentBid = row.querySelector('[data-auction-current-bid]');
                             var bidsCount = row.querySelector('[data-auction-bids-count]');
                             var endTime = row.querySelector('[data-auction-end-time]');
+                            var deleteButton = row.querySelector('.js-auction-delete');
 
                             if (currentBid) {
                                 currentBid.textContent = data.current_bid;
@@ -394,6 +395,10 @@
 
                             if (endTime) {
                                 endTime.textContent = data.end_time_label || '';
+                            }
+
+                            if (deleteButton) {
+                                deleteButton.disabled = !data.can_delete;
                             }
                         });
 

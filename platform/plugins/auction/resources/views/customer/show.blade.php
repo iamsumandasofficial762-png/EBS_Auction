@@ -7,10 +7,12 @@
         EcommerceHelper::registerThemeAssets();
         $customer = auth('customer')->user();
         $displayStatus = $auction->customerDisplayStatus($customer?->getKey());
-        $canBid = $auction->canCustomerBid($customer);
+        $hasBid = $myBid !== null;
+        $canBid = ! $hasBid && $auction->canCustomerBid($customer);
         $imageUrl = $auction->primary_image ? RvMedia::getImageUrl($auction->primary_image, null, false, RvMedia::getDefaultImage()) : RvMedia::getDefaultImage();
         $conditionLabel = $auction->condition ? __(Str::headline($auction->condition)) : null;
         $sku = $auction->sku ?? null;
+        $autoSelectAt = $auction->autoSelectAt();
         $vendorName = $auction->store_id && optional($auction->store)->name ? $auction->store->name : optional($auction->vendor)->name;
         $statusLabel = [
             'live' => __('Live Auction'),
@@ -35,7 +37,7 @@
         .auction-detail-card { background: #fff; border: 1px solid #dce8f8; border-radius: 8px; box-shadow: 0 18px 42px rgba(31, 91, 153, .08); overflow: hidden; }
         .auction-detail-card__grid { display: grid; grid-template-columns: minmax(280px, 42%) 1fr; }
         .auction-detail-gallery { align-items: center; background: linear-gradient(180deg, #fbfdff 0%, #fff 100%); border-right: 1px solid #e2edf9; display: flex; justify-content: center; min-height: 470px; padding: 36px; }
-        .auction-detail-gallery img { display: block; max-height: 420px; object-fit: contain; width: 100%; }
+        .auction-detail-gallery .auction-image-slider { width: 100%; }
         .auction-detail-summary { padding: 34px 36px; }
         .auction-detail-badge { align-items: center; background: #1769c2; border-radius: 999px; color: #fff; display: inline-flex; font-size: 11px; font-weight: 800; gap: 6px; padding: 9px 13px; text-transform: uppercase; }
         .auction-detail-card--upcoming .auction-detail-badge { background: #d99613; }
@@ -78,7 +80,7 @@
     <div class="auction-detail-card auction-detail-card--{{ $displayStatus }}" data-auction-id="{{ $auction->getKey() }}">
         <div class="auction-detail-card__grid">
             <div class="auction-detail-gallery">
-                <img src="{{ $imageUrl }}" alt="{{ $auction->title }}">
+                @include('plugins/auction::customer.partials.image-slider', ['auction' => $auction, 'variant' => 'detail'])
             </div>
             <div class="auction-detail-summary">
                 <span class="auction-detail-badge">
@@ -117,10 +119,20 @@
                         <strong>{{ optional($auction->end_time)->format('M d, Y h:i A') ?: __('N/A') }}</strong>
                     </div>
                     <div class="auction-detail-info-item">
-                        <span>{{ __('Time Left') }}</span>
-                        <strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">
-                            {{ $auction->isEnded() ? __('Closed') : __('Calculating') }}
-                        </strong>
+                        @if ($displayStatus === 'waiting')
+                            <span>{{ __('Result declear in') }}</span>
+                            <strong
+                                class="auction-auto-select-countdown"
+                                data-auto-select-at="{{ optional($autoSelectAt)->toIso8601String() }}"
+                            >
+                                {{ $autoSelectAt && $autoSelectAt->isPast() ? __('Selecting winner...') : __('Calculating') }}
+                            </strong>
+                        @else
+                            <span>{{ __('Time Left') }}</span>
+                            <strong data-auction-countdown="{{ optional($auction->end_time)->toIso8601String() }}">
+                                {{ $auction->isEnded() ? __('Closed') : __('Calculating') }}
+                            </strong>
+                        @endif
                     </div>
                     <div class="auction-detail-info-item">
                         <span>{{ __('Status') }}</span>
@@ -148,8 +160,13 @@
                     @endif
                 </div>
 
-                <div @class(['auction-detail-actions', 'auction-detail-actions--single' => ! $canBid])>
-                    @if ($canBid)
+                <div @class(['auction-detail-actions', 'auction-detail-actions--single' => ! $canBid && ! $hasBid])>
+                    @if ($hasBid)
+                        <button class="auction-btn auction-btn--muted" type="button" disabled>
+                            <x-core::icon name="ti ti-gavel" />
+                            {{ __('Bid Placed') }}
+                        </button>
+                    @elseif ($canBid)
                         <button
                             class="auction-btn auction-btn--primary js-place-bid"
                             type="button"
@@ -159,6 +176,7 @@
                             data-url="{{ route('auction.customer.bid', $auction) }}"
                             data-minimum-bid="{{ $auction->minimum_next_bid }}"
                             data-image="{{ $imageUrl }}"
+                            data-set-amount-raw="{{ $auction->starting_bid }}"
                             data-set-amount="{{ format_price($auction->starting_bid) }}"
                             data-end-time="{{ optional($auction->end_time)->format('M d, Y h:i A') }}"
                             data-countdown="{{ optional($auction->end_time)->toIso8601String() }}"

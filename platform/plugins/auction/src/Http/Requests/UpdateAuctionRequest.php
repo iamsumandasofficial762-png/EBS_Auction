@@ -12,7 +12,7 @@ class UpdateAuctionRequest extends CreateAuctionRequest
             return [
                 'short_description' => ['required', 'string'],
                 'description' => ['required', 'string'],
-                'images' => ['nullable', 'array'],
+                'images' => ['required', 'array', 'min:1'],
                 'images.*' => ['nullable', 'string'],
             ];
         }

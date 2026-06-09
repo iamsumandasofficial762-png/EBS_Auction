@@ -12,6 +12,7 @@ class AuctionNotification extends Model
 
     protected $fillable = [
         'customer_id',
+        'user_id',
         'auction_id',
         'type',
         'title',

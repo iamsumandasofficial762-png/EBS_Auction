@@ -45,12 +45,17 @@
                     <label class="form-label">{{ __('Slug') }}</label>
                     <input class="form-control" name="slug" value="{{ old('slug', $auction->slug) }}" @disabled($criticalDisabled)>
                 </div>
-                <div class="col-12">
+                <div class="col-12" data-auction-images-field>
                     <label class="form-label">{{ __('Product Images') }}</label>
                     @include(MarketplaceHelper::viewPath('vendor-dashboard.forms.partials.custom-images'), [
                         'name' => 'images',
                         'values' => $images,
                     ])
+                    @error('images')
+                        <div class="invalid-feedback d-block" data-auction-images-error>{{ $message }}</div>
+                    @else
+                        <div class="invalid-feedback d-none" data-auction-images-error></div>
+                    @enderror
                 </div>
                 <div class="col-12">
                     <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
@@ -172,6 +177,77 @@
             var statusRefreshTimer = null;
             var scheduledStartTimer = null;
             var syncingStatusFromServer = false;
+            var imagesField = form.querySelector('[data-auction-images-field]');
+            var imagesError = form.querySelector('[data-auction-images-error]');
+            var imagesErrorMessage = '{{ __('Please upload at least one product image before saving.') }}';
+
+            var countImages = function () {
+                return Array.prototype.slice.call(form.querySelectorAll('input[name="images[]"]'))
+                    .filter(function (input) {
+                        return input.value && input.value.trim() !== '';
+                    }).length;
+            };
+
+            var setImagesError = function (message) {
+                if (!imagesField || !imagesError) {
+                    return;
+                }
+
+                var dropzone = imagesField.querySelector('.dropzone');
+
+                if (message) {
+                    imagesError.textContent = message;
+                    imagesError.classList.remove('d-none');
+                    dropzone && dropzone.classList.add('is-invalid');
+                    return;
+                }
+
+                imagesError.textContent = '';
+                imagesError.classList.add('d-none');
+                dropzone && dropzone.classList.remove('is-invalid');
+            };
+
+            var validateImages = function () {
+                if (countImages() > 0) {
+                    setImagesError('');
+
+                    return true;
+                }
+
+                setImagesError(imagesErrorMessage);
+
+                if (imagesField) {
+                    imagesField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+
+                return false;
+            };
+
+            if (imagesField) {
+                imagesField.addEventListener('click', function () {
+                    if (countImages() > 0) {
+                        setImagesError('');
+                    }
+                });
+
+                new MutationObserver(function () {
+                    if (countImages() > 0) {
+                        setImagesError('');
+                    }
+                }).observe(imagesField, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['value']
+                });
+            }
+
+            form.addEventListener('submit', function (event) {
+                if (!validateImages()) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            });
 
             var syncStartTimeRequirement = function () {
                 if (!statusField || !startTimeField) {

@@ -26,7 +26,7 @@ class CreateAuctionRequest extends FormRequest
             ],
             'short_description' => ['required', 'string'],
             'description' => ['required', 'string'],
-            'images' => ['nullable', 'array'],
+            'images' => ['required', 'array', 'min:1'],
             'images.*' => ['nullable', 'string'],
             'category_id' => ['nullable', 'integer', 'exists:ec_product_categories,id'],
             'condition' => ['required', Rule::in(['new', 'used', 'refurbished'])],
@@ -43,6 +43,15 @@ class CreateAuctionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $images = collect($this->input('images', []))
+                ->map(fn ($image) => trim((string) $image))
+                ->filter()
+                ->values();
+
+            if ($images->isEmpty() && ! $validator->errors()->has('images')) {
+                $validator->errors()->add('images', __('Please upload at least one product image.'));
+            }
+
             $status = $this->input('status');
             $startTime = $this->input('start_time');
             $endTime = $this->input('end_time');
@@ -80,5 +89,14 @@ class CreateAuctionRequest extends FormRequest
                 $validator->errors()->add('end_time', __('End time must be after start time for a scheduled auction.'));
             }
         });
+    }
+
+    public function messages(): array
+    {
+        return [
+            'images.required' => __('Please upload at least one product image.'),
+            'images.array' => __('Please upload at least one product image.'),
+            'images.min' => __('Please upload at least one product image.'),
+        ];
     }
 }

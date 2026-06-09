@@ -4,9 +4,10 @@
         var countdownIntervals = [];
         var refreshTimer = null;
         var isRefreshing = false;
+        var isBidModalOpen = false;
 
         var activeModal = function () {
-            return document.querySelector('.auction-bid-modal.show');
+            return isBidModalOpen || document.querySelector('.auction-bid-modal.show');
         };
 
         var showMessage = function (type, message) {
@@ -59,6 +60,8 @@
                 return;
             }
 
+            isBidModalOpen = true;
+
             var form = modal.querySelector('.auction-bid-form');
             var amountInput = modal.querySelector('[name="amount"]');
             var image = modal.querySelector('[data-bid-auction-image]');
@@ -70,9 +73,9 @@
                 form.dataset.auctionId = button.dataset.auctionId || '';
             }
 
-            if (amountInput && button.dataset.minimumBid) {
-                amountInput.min = button.dataset.minimumBid;
-                amountInput.value = button.dataset.minimumBid;
+            if (amountInput) {
+                amountInput.min = button.dataset.setAmountRaw || '';
+                amountInput.value = button.dataset.setAmountRaw || '';
             }
 
             if (image && imageWrap) {
@@ -144,8 +147,106 @@
             countdownIntervals = [];
         };
 
+        var formatCountdown = function (distance) {
+            var days = Math.floor(distance / 86400000);
+            var hours = Math.floor((distance % 86400000) / 3600000);
+            var minutes = Math.floor((distance % 3600000) / 60000);
+
+            return days
+                ? days + 'd ' + String(hours).padStart(2, '0') + 'h ' + String(minutes).padStart(2, '0') + 'm'
+                : String(hours).padStart(2, '0') + 'h ' + String(minutes).padStart(2, '0') + 'm';
+        };
+
+        var initAuctionImageSliders = function () {
+            document.querySelectorAll('[data-auction-slider]').forEach(function (slider) {
+                if (slider.dataset.initialized === '1') {
+                    return;
+                }
+
+                slider.dataset.initialized = '1';
+
+                var track = slider.querySelector('.auction-slider-track');
+                var slides = slider.querySelectorAll('.auction-slider-slide');
+                var prev = slider.querySelector('[data-slider-prev]');
+                var next = slider.querySelector('[data-slider-next]');
+                var dots = slider.querySelectorAll('[data-slider-dot]');
+                var index = 0;
+
+                if (!track || !slides.length) {
+                    return;
+                }
+
+                var goTo = function (newIndex) {
+                    index = (newIndex + slides.length) % slides.length;
+                    track.style.transform = 'translateX(-' + (index * 100) + '%)';
+
+                    dots.forEach(function (dot, dotIndex) {
+                        dot.classList.toggle('is-active', dotIndex === index);
+                    });
+                };
+
+                if (prev) {
+                    prev.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        goTo(index - 1);
+                    });
+                }
+
+                if (next) {
+                    next.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        goTo(index + 1);
+                    });
+                }
+
+                dots.forEach(function (dot) {
+                    dot.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        goTo(parseInt(dot.dataset.sliderDot, 10) || 0);
+                    });
+                });
+
+                goTo(0);
+            });
+        };
+
         var initCountdowns = function () {
             clearCountdowns();
+
+            document.querySelectorAll('[data-countdown-target]').forEach(function (element) {
+                var raw = element.dataset.countdownTarget;
+
+                if (!raw) {
+                    return;
+                }
+
+                var target = new Date(raw).getTime();
+                var expiredText = element.dataset.expiredText || '{{ __('Closed') }}';
+                var refreshTriggered = false;
+
+                var render = function () {
+                    var distance = target - Date.now();
+
+                    if (distance <= 0) {
+                        element.textContent = expiredText;
+
+                        if (!refreshTriggered && dashboard) {
+                            refreshTriggered = true;
+                            refreshAuctionStatus();
+                        }
+
+                        return;
+                    }
+
+                    element.textContent = formatCountdown(distance);
+                };
+
+                render();
+                countdownIntervals.push(setInterval(render, 1000));
+            });
 
             document.querySelectorAll('[data-auction-countdown]').forEach(function (element) {
                 var raw = element.dataset.auctionCountdown;
@@ -161,9 +262,7 @@
                     var distance = end - Date.now();
 
                     if (distance <= 0) {
-                        if (element.textContent === '{{ __('Calculating') }}') {
-                            element.textContent = '{{ __('Not allocated yet') }}';
-                        }
+                        element.textContent = '{{ __('Closed') }}';
 
                         if (!refreshTriggered && dashboard) {
                             refreshTriggered = true;
@@ -173,17 +272,73 @@
                         return;
                     }
 
-                    var days = Math.floor(distance / 86400000);
-                    var hours = Math.floor((distance % 86400000) / 3600000);
-                    var minutes = Math.floor((distance % 3600000) / 60000);
-
-                    element.textContent = days
-                        ? days + 'd ' + String(hours).padStart(2, '0') + 'h'
-                        : String(hours).padStart(2, '0') + 'h ' + String(minutes).padStart(2, '0') + 'm';
+                    element.textContent = formatCountdown(distance);
                 };
 
                 render();
                 countdownIntervals.push(setInterval(render, 60000));
+            });
+
+            document.querySelectorAll('[data-auto-select-at]').forEach(function (element) {
+                var raw = element.dataset.autoSelectAt;
+
+                if (!raw) {
+                    element.textContent = '{{ __('Selecting winner...') }}';
+
+                    return;
+                }
+
+                var autoSelectAt = new Date(raw).getTime();
+                var refreshTriggered = false;
+
+                var render = function () {
+                    var distance = autoSelectAt - Date.now();
+
+                    if (distance <= 0) {
+                        element.textContent = '{{ __('Selecting winner...') }}';
+
+                        if (!refreshTriggered && dashboard) {
+                            refreshTriggered = true;
+                            refreshAuctionStatus();
+                        }
+
+                        return;
+                    }
+
+                    element.textContent = formatCountdown(distance);
+                };
+
+                render();
+                countdownIntervals.push(setInterval(render, 60000));
+            });
+
+            document.querySelectorAll('[data-live-now-until]').forEach(function (badge) {
+                var raw = badge.dataset.liveNowUntil;
+
+                if (!raw) {
+                    return;
+                }
+
+                var until = new Date(raw).getTime();
+                var refreshTriggered = false;
+
+                var render = function () {
+                    var distance = until - Date.now();
+
+                    if (distance <= 0) {
+                        badge.remove();
+
+                        if (!refreshTriggered && dashboard) {
+                            refreshTriggered = true;
+                            refreshAuctionStatus();
+                        }
+
+                        return;
+                    }
+                };
+
+                render();
+                countdownIntervals.push(setInterval(render, Math.min(Math.max(until - Date.now(), 1000), 60000)));
             });
         };
 
@@ -233,6 +388,10 @@
                         return;
                     }
 
+                    if (activeModal()) {
+                        return;
+                    }
+
                     Object.keys(data.counts || {}).forEach(function (key) {
                         var count = document.querySelector('[data-auction-tab-count="' + key + '"]');
 
@@ -250,6 +409,7 @@
                     });
 
                     initCountdowns();
+                    initAuctionImageSliders();
                 })
                 .catch(function () {
                 })
@@ -266,6 +426,24 @@
             }
         });
 
+        document.addEventListener('show.bs.modal', function (event) {
+            if (event.target && event.target.classList.contains('auction-bid-modal')) {
+                isBidModalOpen = true;
+            }
+        });
+
+        document.addEventListener('hidden.bs.modal', function (event) {
+            if (!event.target || !event.target.classList.contains('auction-bid-modal')) {
+                return;
+            }
+
+            isBidModalOpen = false;
+
+            if (dashboard) {
+                setTimeout(window.refreshAuctionStatus, 100);
+            }
+        });
+
         document.addEventListener('click', function (event) {
             var tab = event.target.closest('[data-auction-tab]');
 
@@ -275,6 +453,100 @@
 
             event.preventDefault();
             setActiveTab(tab.dataset.auctionTab, true);
+        });
+
+        var updateNotificationCount = function (count) {
+            var notificationCount = document.querySelector('[data-auction-tab-count="notifications"]');
+
+            if (notificationCount && count !== undefined && count !== null) {
+                notificationCount.textContent = count;
+            }
+        };
+
+        var submitNotificationAction = function (form, onSuccess) {
+            var button = form.querySelector('[type="submit"]');
+            var originalText = button ? button.textContent : '';
+            var methodField = form.querySelector('[name="_method"]');
+
+            if (button) {
+                button.disabled = true;
+            }
+
+            fetch(form.action, {
+                method: methodField ? methodField.value : form.method,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: new FormData(form)
+            })
+                .then(function (response) {
+                    return response.json().then(function (json) {
+                        if (!response.ok || !json.success) {
+                            throw new Error(json.message || '{{ __('Unable to update notification.') }}');
+                        }
+
+                        return json;
+                    });
+                })
+                .then(function (json) {
+                    updateNotificationCount(json.unread_count);
+                    onSuccess(json);
+                })
+                .catch(function (error) {
+                    showMessage('error', error.message);
+
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                });
+        };
+
+        document.addEventListener('submit', function (event) {
+            var form = event.target.closest('[data-notification-read-form], [data-notification-delete-form]');
+
+            if (!form) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (form.matches('[data-notification-read-form]')) {
+                submitNotificationAction(form, function () {
+                    var card = form.closest('[data-notification-card]');
+
+                    if (card) {
+                        card.classList.remove('is-unread');
+                        card.classList.add('is-read');
+                        card.dataset.isUnread = '0';
+                    }
+
+                    var button = form.querySelector('[type="submit"]');
+
+                    if (button) {
+                        button.textContent = '{{ __('Read') }}';
+                        button.classList.remove('auction-btn--primary');
+                        button.classList.add('auction-btn--muted', 'is-read-button');
+                        button.disabled = true;
+                    }
+                });
+
+                return;
+            }
+
+            submitNotificationAction(form, function () {
+                var card = form.closest('[data-notification-card]');
+
+                if (card) {
+                    card.remove();
+                }
+
+                if (dashboard) {
+                    setTimeout(window.refreshAuctionStatus, 100);
+                }
+            });
         });
 
         document.addEventListener('submit', function (event) {
@@ -345,6 +617,7 @@
         });
 
         initCountdowns();
+        initAuctionImageSliders();
 
         if (dashboard) {
             refreshTimer = setInterval(window.refreshAuctionStatus, 15000);

@@ -59,11 +59,11 @@
                     name="amount"
                     type="number"
                     step="0.01"
-                    min="{{ $auction->minimum_next_bid }}"
-                    value="{{ old('amount', $auction->minimum_next_bid) }}"
+                    min="{{ $auction->starting_bid }}"
+                    value="{{ old('amount', $auction->starting_bid) }}"
                     required
                 >
-                <small class="auction-bid-help">{{ __('Enter your bid amount.') }}</small>
+                <small class="auction-bid-help">{{ __('Enter your bid amount. Your bid must follow auction rules.') }}</small>
             </div>
             <div class="modal-footer">
                 <button type="button" class="auction-btn auction-btn--outline" data-bs-dismiss="modal">{{ __('Cancel') }}</button>

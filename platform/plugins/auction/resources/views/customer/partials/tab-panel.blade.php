@@ -3,7 +3,7 @@
 @else
     <div class="auction-grid">
         @forelse ($items as $auction)
-            @include('plugins/auction::customer.partials.auction-card', ['auction' => $auction])
+            @include('plugins/auction::customer.partials.auction-card', ['auction' => $auction, 'tab' => $key])
         @empty
             <div class="auction-empty">
                 <x-core::icon name="ti ti-gavel" />

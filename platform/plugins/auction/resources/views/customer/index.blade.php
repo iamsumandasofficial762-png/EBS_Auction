@@ -41,7 +41,7 @@
                     @class(['auction-tab', 'is-active' => $activeTab === $key])
                 >
                     <span>{{ $label }}</span>
-                    <strong data-auction-tab-count="{{ $key }}">{{ $items->count() }}</strong>
+                    <strong data-auction-tab-count="{{ $key }}">{{ $key === 'notifications' ? $unreadNotificationCount : $items->count() }}</strong>
                 </a>
             @endforeach
         </div>
